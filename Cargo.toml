@@ -15,3 +15,16 @@ std = []
 parking_lot = "0.12"
 hashbrown = "0.14"
 ahash = "0.8"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "cache_bench"
+harness = false
+
+[[example]]
+name = "basic_cache"
+
+[[example]]
+name = "distributed_cache"
