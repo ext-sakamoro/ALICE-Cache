@@ -48,6 +48,9 @@ pub mod oracle;
 pub mod shard;
 pub mod sketch;
 
+#[cfg(feature = "pyo3")]
+pub mod python;
+
 // Re-exports
 pub use cache::{AliceCache, CacheConfig, CacheStats, StandardCache};
 pub use jump_hash::{jump_hash, jump_hash_bytes, jump_hash_u128};

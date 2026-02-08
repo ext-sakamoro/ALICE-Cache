@@ -1,0 +1,17 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "alice-cache"
+requires-python = ">=3.8"
+description = "Predictive Distributed Caching System"
+license = { text = "AGPL-3.0" }
+authors = [{ name = "Moroya Sakamoto" }]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+
+[tool.maturin]
+features = ["pyo3"]

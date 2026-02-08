@@ -7,14 +7,21 @@ description = "Predictive Distributed Caching System - Inferno Edition"
 license = "AGPL-3.0"
 repository = "https://github.com/ext-sakamoro/ALICE-Cache"
 
+[lib]
+name = "alice_cache"
+crate-type = ["rlib", "cdylib"]
+
 [features]
 default = ["std"]
 std = []
+pyo3 = ["dep:pyo3", "dep:numpy", "std"]  # Python bindings
 
 [dependencies]
 parking_lot = "0.12"
 hashbrown = "0.14"
 ahash = "0.8"
+pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
+numpy = { version = "0.27", optional = true }
 
 [profile.release]
 opt-level = 3
