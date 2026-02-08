@@ -249,6 +249,47 @@ fn jump_hash_u128(key: u128, num_buckets: i32) -> i32;
 - **Speed**: O(ln n) jumps, ~20ns for 1000 nodes
 - **Stability**: Only 1/n keys move when adding node n
 
+## SDF Asset Delivery Network Integration
+
+ALICE-Cache serves as the predictive caching layer in the SDF asset delivery pipeline, achieving **200-800x bandwidth reduction** vs glTF by delivering mathematical descriptions instead of polygon meshes.
+
+```
+Client Request (asset_id + VivaldiCoord)
+    │
+    ▼
+┌──────────────────────────────────────┐
+│  ALICE-CDN (Vivaldi Routing)          │
+│  ・VivaldiCoord → nearest node (RTT)  │
+└──────────┬───────────────────────────┘
+           │
+           ▼
+┌──────────────────────────────────────┐
+│  ALICE-Cache (Markov Prefetch)   ◀── this crate
+│  ・256-shard parallel cache           │
+│  ・SharedOracle: lock-free prediction │
+│  ・TinyLFU sampled eviction           │
+└──────────┬───────────────────────────┘
+           │ cache miss → origin
+           ▼
+┌──────────────────────────────────────┐
+│  ALICE-SDF (ASDF Binary Format)       │
+│  ・80 bytes (sphere) vs 20 KB (glTF)  │
+└──────────────────────────────────────┘
+```
+
+Related: [ALICE-SDF](https://github.com/ext-sakamoro/ALICE-SDF) | [ALICE-CDN](https://github.com/ext-sakamoro/ALICE-CDN)
+
+## Cross-Crate Bridges
+
+### Sync Bridge (feature: `sync`)
+
+CRDT-based cache invalidation and distributed consistency via [ALICE-Sync](../ALICE-Sync). When a node's sync state changes, the sync bridge automatically invalidates stale cache entries across the distributed cache cluster, ensuring eventual consistency without manual purging.
+
+```toml
+[dependencies]
+alice-cache = { version = "0.2", features = ["sync"] }
+```
+
 ## License
 
 **GNU AGPLv3**
