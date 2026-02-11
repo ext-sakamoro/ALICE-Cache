@@ -52,6 +52,8 @@ pub mod sketch;
 pub mod python;
 #[cfg(feature = "crypto")]
 pub mod crypto_bridge;
+#[cfg(feature = "analytics")]
+pub mod analytics_bridge;
 
 // Re-exports
 pub use cache::{AliceCache, CacheConfig, CacheStats, StandardCache};

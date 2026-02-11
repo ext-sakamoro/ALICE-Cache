@@ -16,6 +16,7 @@ default = ["std"]
 std = []
 pyo3 = ["dep:pyo3", "dep:numpy", "std"]  # Python bindings
 crypto = ["dep:alice-crypto", "std"]  # Signed cache entries for tamper prevention
+analytics = ["dep:alice-analytics", "std"]  # Cache hit/miss metrics + hot key tracking
 
 [dependencies]
 parking_lot = "0.12"
@@ -24,6 +25,7 @@ ahash = "0.8"
 pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 numpy = { version = "0.27", optional = true }
 alice-crypto = { path = "../ALICE-Crypto", optional = true, default-features = false, features = ["std"] }
+alice-analytics = { path = "../ALICE-Analytics", optional = true, default-features = false, features = ["std"] }
 
 [profile.release]
 opt-level = 3
