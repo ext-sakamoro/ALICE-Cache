@@ -290,6 +290,16 @@ CRDT-based cache invalidation and distributed consistency via [ALICE-Sync](../AL
 alice-cache = { version = "0.2", features = ["sync"] }
 ```
 
+### ALICE-Analytics Bridge (feature: `analytics`)
+
+Cache hit/miss metrics with streaming telemetry.
+
+- `CacheMetrics` — HyperLogLog (unique keys), DDSketch (latency percentiles), CountMinSketch (hot key frequency)
+- `record_hit()` / `record_miss()` — Record cache access with latency
+- `hit_rate()`, `p50_latency()`, `p99_latency()`, `unique_keys()` — Query metrics
+
+Enable: `alice-cache = { features = ["analytics"] }`
+
 ## License
 
 **GNU AGPLv3**
