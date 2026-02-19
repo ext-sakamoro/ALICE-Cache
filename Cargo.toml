@@ -6,6 +6,7 @@ authors = ["Moroya Sakamoto"]
 description = "Predictive Distributed Caching System - Inferno Edition"
 license = "AGPL-3.0"
 repository = "https://github.com/ext-sakamoro/ALICE-Cache"
+publish = false
 
 [lib]
 name = "alice_cache"
