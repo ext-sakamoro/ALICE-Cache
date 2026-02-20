@@ -29,13 +29,13 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     }
 
     /// Add an item (increment its count)
-    #[inline]
+    #[inline(always)]
     pub fn add(&mut self, key_hash: u64) {
         self.add_count(key_hash, 1);
     }
 
     /// Add an item with a specific count
-    #[inline]
+    #[inline(always)]
     pub fn add_count(&mut self, key_hash: u64, count: u8) {
         for i in 0..D {
             let idx = self.index(key_hash, i);
@@ -48,7 +48,7 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     ///
     /// Returns the minimum count across all hash functions.
     /// This is always >= true count (no underestimate).
-    #[inline]
+    #[inline(always)]
     pub fn estimate(&self, key_hash: u64) -> u8 {
         let mut min_count = u8::MAX;
         for i in 0..D {
@@ -80,7 +80,7 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     }
 
     /// Total number of items added
-    #[inline]
+    #[inline(always)]
     pub fn total(&self) -> u64 {
         self.total
     }

@@ -19,7 +19,10 @@
 /// let bucket = jump_hash(12345, 10);
 /// assert!(bucket >= 0 && bucket < 10);
 /// ```
-#[inline]
+/// Precomputed constant 2^31 for jump hash probability calculation
+const TWO_POW_31: f64 = 2147483648.0;
+
+#[inline(always)]
 pub fn jump_hash(mut key: u64, num_buckets: i32) -> i32 {
     if num_buckets <= 0 {
         return 0;
@@ -36,9 +39,8 @@ pub fn jump_hash(mut key: u64, num_buckets: i32) -> i32 {
         // Convert to float for probability calculation
         let key_float = ((key >> 33) + 1) as f64;
 
-        // The magic jump formula:
-        // Next jump is geometrically distributed based on hash value
-        let jump_prob = 2147483648.0 / key_float;
+        // Reciprocal multiplication instead of division: (b+1) * (2^31 / key_float)
+        let jump_prob = key_float.recip() * TWO_POW_31;
         j = ((b + 1) as f64 * jump_prob) as i64;
     }
 

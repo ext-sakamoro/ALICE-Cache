@@ -31,6 +31,7 @@ pub struct CacheStats {
 
 impl CacheStats {
     /// Hit rate (0.0 to 1.0)
+    #[inline(always)]
     pub fn hit_rate(&self) -> f64 {
         let hits = self.hits.load(Ordering::Relaxed);
         let misses = self.misses.load(Ordering::Relaxed);
@@ -38,7 +39,8 @@ impl CacheStats {
         if total == 0 {
             0.0
         } else {
-            hits as f64 / total as f64
+            let inv_total = 1.0 / total as f64;
+            hits as f64 * inv_total
         }
     }
 
@@ -143,7 +145,7 @@ where
     /// Get value by key
     ///
     /// Returns None if not found. Updates frequency on access.
-    #[inline]
+    #[inline(always)]
     pub fn get(&self, key: &K) -> Option<V> {
         let (shard_idx, hash) = self.get_shard_idx(key);
         let shard = &self.shards[shard_idx];
@@ -166,7 +168,7 @@ where
     /// Insert key-value pair
     ///
     /// May trigger eviction if shard is at capacity.
-    #[inline]
+    #[inline(always)]
     pub fn put(&self, key: K, value: V) {
         let (shard_idx, hash) = self.get_shard_idx(&key);
         self.shards[shard_idx].put(key, value, hash);
@@ -179,21 +181,21 @@ where
     }
 
     /// Remove key from cache
-    #[inline]
+    #[inline(always)]
     pub fn remove(&self, key: &K) -> Option<V> {
         let (shard_idx, _) = self.get_shard_idx(key);
         self.shards[shard_idx].remove(key)
     }
 
     /// Check if key exists
-    #[inline]
+    #[inline(always)]
     pub fn contains(&self, key: &K) -> bool {
         let (shard_idx, _) = self.get_shard_idx(key);
         self.shards[shard_idx].contains(key)
     }
 
     /// Check if oracle recommends prefetching candidate after current
-    #[inline]
+    #[inline(always)]
     pub fn should_prefetch(&self, current: &K, candidate: &K) -> bool {
         if let Some(ref oracle) = self.oracle {
             let current_hash = self.hash_key(current);
@@ -205,14 +207,14 @@ where
     }
 
     /// Get which distributed node owns a key (Jump Consistent Hash)
-    #[inline]
+    #[inline(always)]
     pub fn owner_node(&self, key: &K) -> u32 {
         let hash = self.hash_key(key);
         jump_hash(hash, self.config.num_nodes) as u32
     }
 
     /// Check if this node owns the key
-    #[inline]
+    #[inline(always)]
     pub fn is_local_owner(&self, key: &K) -> bool {
         self.owner_node(key) == self.config.node_id
     }

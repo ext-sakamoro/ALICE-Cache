@@ -65,7 +65,7 @@ where
     }
 
     /// Get value by key (updates frequency)
-    #[inline]
+    #[inline(always)]
     pub fn get(&self, key: &K, hash: u64) -> Option<V> {
         let mut guard = self.inner.lock();
         let inner = &mut *guard;
@@ -84,7 +84,7 @@ where
     }
 
     /// Insert key-value pair (may trigger eviction)
-    #[inline]
+    #[inline(always)]
     pub fn put(&self, key: K, value: V, hash: u64) {
         let mut guard = self.inner.lock();
         let inner = &mut *guard;
@@ -110,7 +110,7 @@ where
     }
 
     /// Remove key from shard
-    #[inline]
+    #[inline(always)]
     pub fn remove(&self, key: &K) -> Option<V> {
         let mut guard = self.inner.lock();
         let inner = &mut *guard;
@@ -123,13 +123,13 @@ where
     }
 
     /// Check if key exists
-    #[inline]
+    #[inline(always)]
     pub fn contains(&self, key: &K) -> bool {
         self.inner.lock().lookup.contains_key(key)
     }
 
     /// Current number of items
-    #[inline]
+    #[inline(always)]
     pub fn len(&self) -> usize {
         self.inner.lock().entries.len()
     }
@@ -164,7 +164,7 @@ where
     ///
     /// Because `entries` is a dense Vec, we can pick a random index in O(1).
     /// No iteration. No skipping. Pure memory offset.
-    #[inline]
+    #[inline(always)]
     fn sampled_evict(inner: &mut ShardInner<K, V>) {
         if inner.entries.is_empty() {
             return;
@@ -195,7 +195,7 @@ where
     }
 
     /// Age the sketch periodically to adapt to changing patterns
-    #[inline]
+    #[inline(always)]
     fn maybe_age_sketch(inner: &mut ShardInner<K, V>) {
         if inner.sample_count >= 10000 {
             inner.sketch.halve();

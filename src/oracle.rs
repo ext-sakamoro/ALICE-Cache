@@ -34,7 +34,7 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
     }
 
     /// Add to frequency count (lock-free, relaxed ordering)
-    #[inline]
+    #[inline(always)]
     fn add(&self, key_hash: u64) {
         for i in 0..D {
             let offset = i * W + self.index(key_hash, i);
@@ -48,7 +48,7 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
     }
 
     /// Estimate frequency (minimum across all rows)
-    #[inline]
+    #[inline(always)]
     fn estimate(&self, key_hash: u64) -> u8 {
         let mut min_count = u8::MAX;
         for i in 0..D {
@@ -104,7 +104,7 @@ impl MarkovOracle {
     }
 
     /// Record an access and update transition probabilities
-    #[inline]
+    #[inline(always)]
     pub fn record(&mut self, current_key_hash: u64) {
         if let Some(prev) = self.last_key_hash {
             let h = Self::mix(prev, current_key_hash);
@@ -120,14 +120,14 @@ impl MarkovOracle {
     }
 
     /// Check if we should prefetch a candidate key
-    #[inline]
+    #[inline(always)]
     pub fn should_prefetch(&self, current: u64, candidate: u64) -> bool {
         let h = Self::mix(current, candidate);
         self.transitions.estimate(h) >= PREFETCH_THRESHOLD
     }
 
     /// Get the estimated transition frequency
-    #[inline]
+    #[inline(always)]
     pub fn transition_freq(&self, from: u64, to: u64) -> u8 {
         let h = Self::mix(from, to);
         self.transitions.estimate(h)
@@ -176,7 +176,7 @@ impl SharedOracle {
     }
 
     /// Record access (lock-free)
-    #[inline]
+    #[inline(always)]
     pub fn record(&self, current_hash: u64) {
         // Swap returns the previous value - perfect for chaining
         let prev = self.last_key.swap(current_hash, Ordering::Relaxed);
@@ -193,7 +193,7 @@ impl SharedOracle {
     }
 
     /// Check if we should prefetch (lock-free)
-    #[inline]
+    #[inline(always)]
     pub fn should_prefetch(&self, current: u64, candidate: u64) -> bool {
         let h = Self::mix(current, candidate);
         self.transitions.estimate(h) >= PREFETCH_THRESHOLD
