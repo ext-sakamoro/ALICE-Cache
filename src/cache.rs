@@ -21,12 +21,65 @@ extern crate alloc;
 const DEFAULT_SHARDS: usize = 256;
 
 /// Cache statistics (lock-free)
-#[derive(Default)]
+///
+/// Each counter is placed in its own 64-byte cache line to eliminate false
+/// sharing when multiple threads update different counters concurrently.
+/// Without padding, `hits`, `misses`, `inserts`, and `evictions` would share
+/// one or two cache lines, causing unnecessary cache-coherence traffic.
+///
+/// `AtomicU64` is 8 bytes, so 56 bytes of padding fill the rest of the line.
+#[repr(C)]
 pub struct CacheStats {
-    pub hits: AtomicU64,
-    pub misses: AtomicU64,
-    pub inserts: AtomicU64,
-    pub evictions: AtomicU64,
+    pub hits:      PaddedAtomicU64,
+    pub misses:    PaddedAtomicU64,
+    pub inserts:   PaddedAtomicU64,
+    pub evictions: PaddedAtomicU64,
+}
+
+/// An `AtomicU64` padded to a full 64-byte cache line.
+///
+/// Prevents false sharing between adjacent counters on different CPU cores.
+#[repr(C, align(64))]
+pub struct PaddedAtomicU64 {
+    pub value: AtomicU64,
+    _pad: [u8; 56], // 64 - size_of::<AtomicU64>() == 64 - 8 == 56
+}
+
+impl PaddedAtomicU64 {
+    pub const fn new(v: u64) -> Self {
+        Self {
+            value: AtomicU64::new(v),
+            _pad: [0u8; 56],
+        }
+    }
+}
+
+impl Default for PaddedAtomicU64 {
+    fn default() -> Self {
+        Self::new(0)
+    }
+}
+
+impl core::ops::Deref for PaddedAtomicU64 {
+    type Target = AtomicU64;
+    #[inline(always)]
+    fn deref(&self) -> &AtomicU64 { &self.value }
+}
+
+impl core::ops::DerefMut for PaddedAtomicU64 {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut AtomicU64 { &mut self.value }
+}
+
+impl Default for CacheStats {
+    fn default() -> Self {
+        Self {
+            hits:      PaddedAtomicU64::default(),
+            misses:    PaddedAtomicU64::default(),
+            inserts:   PaddedAtomicU64::default(),
+            evictions: PaddedAtomicU64::default(),
+        }
+    }
 }
 
 impl CacheStats {

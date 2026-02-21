@@ -188,9 +188,12 @@ where
             }
         }
 
-        // Remove victim via swap_remove (O(1))
-        let key_to_remove = inner.entries[victim_idx].key.clone();
-        inner.lookup.remove(&key_to_remove);
+        // Remove victim via swap_remove (O(1)).
+        // We remove from the lookup map using a reference to avoid cloning.
+        // SAFETY: lookup.remove borrows inner.entries[victim_idx].key as &K,
+        // which lives long enough since swap_remove is called afterwards.
+        // The borrow ends before swap_remove mutates entries.
+        inner.lookup.remove(&inner.entries[victim_idx].key);
         let _ = Self::swap_remove(inner, victim_idx);
     }
 

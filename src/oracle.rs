@@ -33,17 +33,22 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
         }
     }
 
-    /// Add to frequency count (lock-free, relaxed ordering)
+    /// Add to frequency count (lock-free, atomic saturating increment)
+    ///
+    /// Uses `fetch_update` with Relaxed/Relaxed ordering to avoid the racy
+    /// load-check-store pattern. For a probabilistic sketch, Relaxed is
+    /// sufficient — we need atomicity, not cross-thread ordering guarantees.
     #[inline(always)]
     fn add(&self, key_hash: u64) {
         for i in 0..D {
             let offset = i * W + self.index(key_hash, i);
-            // Relaxed is fine; we don't need synchronization, just statistics
-            // Saturating add via load-check-store (racy but OK for prediction)
-            let val = self.table[offset].load(Ordering::Relaxed);
-            if val < 255 {
-                self.table[offset].store(val.saturating_add(1), Ordering::Relaxed);
-            }
+            // fetch_update atomically: if current < 255, increment.
+            // Spurious failures are retried automatically.
+            let _ = self.table[offset].fetch_update(
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+                |v| if v < 255 { Some(v + 1) } else { None },
+            );
         }
     }
 
@@ -60,10 +65,16 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
     }
 
     /// Halve all counters (for aging)
+    ///
+    /// Uses `fetch_update` to avoid the racy load-store pattern.
     fn halve(&self) {
         for atomic in self.table.iter() {
-            let val = atomic.load(Ordering::Relaxed);
-            atomic.store(val >> 1, Ordering::Relaxed);
+            // Atomically halve each counter.
+            let _ = atomic.fetch_update(
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+                |v| Some(v >> 1),
+            );
         }
     }
 
