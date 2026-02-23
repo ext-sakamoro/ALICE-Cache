@@ -8,7 +8,7 @@
 //! Zero allocation on hot paths. Cache locality maximized.
 
 use alloc::vec::Vec;
-use core::hash::{BuildHasher, Hash, Hasher};
+use core::hash::Hash;
 use core::sync::atomic::{AtomicU64, Ordering};
 
 use crate::jump_hash::jump_hash;
@@ -29,10 +29,11 @@ const DEFAULT_SHARDS: usize = 256;
 ///
 /// `AtomicU64` is 8 bytes, so 56 bytes of padding fill the rest of the line.
 #[repr(C)]
+#[derive(Default)]
 pub struct CacheStats {
-    pub hits:      PaddedAtomicU64,
-    pub misses:    PaddedAtomicU64,
-    pub inserts:   PaddedAtomicU64,
+    pub hits: PaddedAtomicU64,
+    pub misses: PaddedAtomicU64,
+    pub inserts: PaddedAtomicU64,
     pub evictions: PaddedAtomicU64,
 }
 
@@ -63,22 +64,15 @@ impl Default for PaddedAtomicU64 {
 impl core::ops::Deref for PaddedAtomicU64 {
     type Target = AtomicU64;
     #[inline(always)]
-    fn deref(&self) -> &AtomicU64 { &self.value }
+    fn deref(&self) -> &AtomicU64 {
+        &self.value
+    }
 }
 
 impl core::ops::DerefMut for PaddedAtomicU64 {
     #[inline(always)]
-    fn deref_mut(&mut self) -> &mut AtomicU64 { &mut self.value }
-}
-
-impl Default for CacheStats {
-    fn default() -> Self {
-        Self {
-            hits:      PaddedAtomicU64::default(),
-            misses:    PaddedAtomicU64::default(),
-            inserts:   PaddedAtomicU64::default(),
-            evictions: PaddedAtomicU64::default(),
-        }
+    fn deref_mut(&mut self) -> &mut AtomicU64 {
+        &mut self.value
     }
 }
 
@@ -170,9 +164,12 @@ where
 
     /// Create new cache with custom configuration
     pub fn with_config(config: CacheConfig) -> Self {
-        assert!(config.num_shards.is_power_of_two(), "num_shards must be power of 2");
+        assert!(
+            config.num_shards.is_power_of_two(),
+            "num_shards must be power of 2"
+        );
 
-        let shard_cap = (config.capacity + config.num_shards - 1) / config.num_shards;
+        let shard_cap = config.capacity.div_ceil(config.num_shards);
 
         let mut shards = Vec::with_capacity(config.num_shards);
         for _ in 0..config.num_shards {
@@ -319,9 +316,7 @@ where
     /// Hash a key
     #[inline(always)]
     fn hash_key(&self, key: &K) -> u64 {
-        let mut hasher = self.hash_builder.build_hasher();
-        key.hash(&mut hasher);
-        hasher.finish()
+        self.hash_builder.hash_one(key)
     }
 }
 
@@ -467,5 +462,204 @@ mod tests {
 
         // Should have some items
         assert!(cache.len() > 0);
+    }
+
+    // ── Additional tests for quality improvement ──────────────────
+
+    #[test]
+    fn test_padded_atomic_u64_alignment() {
+        // Verify that PaddedAtomicU64 is exactly 64 bytes (one cache line)
+        assert_eq!(core::mem::size_of::<PaddedAtomicU64>(), 64);
+        assert_eq!(core::mem::align_of::<PaddedAtomicU64>(), 64);
+    }
+
+    #[test]
+    fn test_cache_stats_all_misses() {
+        let cache = AliceCache::<u32, u32>::new(100);
+
+        // All misses
+        for i in 0..10 {
+            cache.get(&i);
+        }
+
+        assert_eq!(cache.stats().hits.load(Ordering::Relaxed), 0);
+        assert_eq!(cache.stats().misses.load(Ordering::Relaxed), 10);
+        assert!((cache.hit_rate() - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cache_stats_all_hits() {
+        let cache = AliceCache::<u32, u32>::new(100);
+
+        // Insert first, then all hits
+        for i in 0..10 {
+            cache.put(i, i * 10);
+        }
+        for i in 0..10 {
+            assert!(cache.get(&i).is_some());
+        }
+
+        assert_eq!(cache.stats().hits.load(Ordering::Relaxed), 10);
+        // Misses should be 0 (only the get() calls count, not put())
+        assert_eq!(cache.stats().misses.load(Ordering::Relaxed), 0);
+        assert!((cache.hit_rate() - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cache_stats_no_operations() {
+        let cache = AliceCache::<u32, u32>::new(100);
+
+        // No operations - hit rate should be 0.0 (not NaN or panic)
+        assert!((cache.hit_rate() - 0.0).abs() < f64::EPSILON);
+        assert!(!cache.hit_rate().is_nan());
+    }
+
+    #[test]
+    fn test_cache_stats_reset() {
+        let cache = AliceCache::<u32, u32>::new(100);
+
+        cache.put(1, 10);
+        cache.get(&1);
+        cache.get(&2);
+
+        assert!(cache.stats().hits.load(Ordering::Relaxed) > 0);
+
+        cache.stats().reset();
+
+        assert_eq!(cache.stats().hits.load(Ordering::Relaxed), 0);
+        assert_eq!(cache.stats().misses.load(Ordering::Relaxed), 0);
+        assert_eq!(cache.stats().inserts.load(Ordering::Relaxed), 0);
+        assert_eq!(cache.stats().evictions.load(Ordering::Relaxed), 0);
+    }
+
+    #[test]
+    fn test_cache_new_is_empty() {
+        let cache = AliceCache::<u32, u32>::new(100);
+
+        assert!(cache.is_empty());
+        assert_eq!(cache.len(), 0);
+        assert_eq!(cache.capacity(), 100);
+    }
+
+    #[test]
+    fn test_cache_contains() {
+        let cache = AliceCache::<u32, u32>::new(100);
+
+        assert!(!cache.contains(&1));
+        cache.put(1, 10);
+        assert!(cache.contains(&1));
+        cache.remove(&1);
+        assert!(!cache.contains(&1));
+    }
+
+    #[test]
+    fn test_cache_put_updates_existing() {
+        let cache = AliceCache::<u32, String>::new(100);
+
+        cache.put(1, "first".to_string());
+        assert_eq!(cache.get(&1), Some("first".to_string()));
+
+        cache.put(1, "second".to_string());
+        assert_eq!(cache.get(&1), Some("second".to_string()));
+
+        // Length should still be 1 (update, not new insert)
+        // Note: len counts across all shards, the key is in exactly one shard
+        // After update, the item count should not increase
+        let len_after = cache.len();
+        cache.put(1, "third".to_string());
+        assert_eq!(cache.len(), len_after);
+    }
+
+    #[test]
+    fn test_cache_remove_nonexistent() {
+        let cache = AliceCache::<u32, u32>::new(100);
+
+        assert_eq!(cache.remove(&999), None);
+    }
+
+    #[test]
+    fn test_cache_without_oracle() {
+        let config = CacheConfig {
+            capacity: 100,
+            enable_oracle: false,
+            ..Default::default()
+        };
+        let cache = AliceCache::<u32, u32>::with_config(config);
+
+        cache.put(1, 10);
+        assert_eq!(cache.get(&1), Some(10));
+
+        // should_prefetch should always return false when oracle is disabled
+        assert!(!cache.should_prefetch(&1, &2));
+    }
+
+    #[test]
+    #[should_panic(expected = "num_shards must be power of 2")]
+    fn test_cache_non_power_of_two_shards_panics() {
+        let config = CacheConfig {
+            capacity: 100,
+            num_shards: 3, // not a power of 2
+            ..Default::default()
+        };
+        let _cache = AliceCache::<u32, u32>::with_config(config);
+    }
+
+    #[test]
+    fn test_cache_is_local_owner_single_node() {
+        let config = CacheConfig {
+            capacity: 100,
+            num_nodes: 1,
+            node_id: 0,
+            ..Default::default()
+        };
+        let cache = AliceCache::<u64, u64>::with_config(config);
+
+        // With only 1 node, all keys should be locally owned
+        for key in 0..100u64 {
+            assert!(cache.is_local_owner(&key));
+        }
+    }
+
+    #[test]
+    fn test_cache_string_keys() {
+        let cache = AliceCache::<String, Vec<u8>>::new(1000);
+
+        cache.put("hello".to_string(), vec![1, 2, 3]);
+        cache.put("world".to_string(), vec![4, 5, 6]);
+
+        assert_eq!(cache.get(&"hello".to_string()), Some(vec![1, 2, 3]));
+        assert_eq!(cache.get(&"world".to_string()), Some(vec![4, 5, 6]));
+        assert_eq!(cache.get(&"missing".to_string()), None);
+    }
+
+    #[test]
+    fn test_cache_large_capacity() {
+        let cache = AliceCache::<u64, u64>::new(100_000);
+
+        // Insert many items
+        for i in 0..10_000u64 {
+            cache.put(i, i);
+        }
+
+        // Verify some items are retrievable
+        let mut found = 0;
+        for i in 0..10_000u64 {
+            if cache.get(&i).is_some() {
+                found += 1;
+            }
+        }
+        // All should be present since we're well under capacity
+        assert_eq!(found, 10_000);
+    }
+
+    #[test]
+    fn test_cache_config_default() {
+        let config = CacheConfig::default();
+
+        assert_eq!(config.capacity, 10000);
+        assert_eq!(config.num_shards, DEFAULT_SHARDS);
+        assert_eq!(config.num_nodes, 1);
+        assert_eq!(config.node_id, 0);
+        assert!(config.enable_oracle);
     }
 }

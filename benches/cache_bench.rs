@@ -1,5 +1,5 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use alice_cache::{AliceCache, CacheConfig, jump_hash, CountMinSketch, Sketch4K, Sketch16K};
+use alice_cache::{jump_hash, AliceCache, CacheConfig, CountMinSketch, Sketch16K, Sketch4K};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn bench_cache_put(c: &mut Criterion) {
     let cache: AliceCache<u64, u64> = AliceCache::new(10000);

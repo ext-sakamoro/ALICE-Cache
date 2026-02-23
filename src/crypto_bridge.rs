@@ -4,7 +4,7 @@
 //! Each cache entry includes a BLAKE3 integrity hash; optionally,
 //! entries can be encrypted with XChaCha20-Poly1305.
 
-use alice_crypto::{hash, Key, CipherError, seal, open};
+use alice_crypto::{hash, open, seal, CipherError, Key};
 
 /// Integrity-verified cache entry wrapper.
 ///

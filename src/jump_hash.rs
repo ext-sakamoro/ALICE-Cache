@@ -113,7 +113,11 @@ mod tests {
 
         // Approximately 1/101 ≈ 1% should move
         let move_ratio = moved as f64 / total as f64;
-        assert!(move_ratio < 0.02, "Too many keys moved: {:.2}%", move_ratio * 100.0);
+        assert!(
+            move_ratio < 0.02,
+            "Too many keys moved: {:.2}%",
+            move_ratio * 100.0
+        );
     }
 
     #[test]
@@ -134,7 +138,10 @@ mod tests {
             assert!(
                 deviation < 0.1,
                 "Bucket {} has {}, expected ~{} (deviation: {:.1}%)",
-                i, count, expected, deviation * 100.0
+                i,
+                count,
+                expected,
+                deviation * 100.0
             );
         }
     }
@@ -156,5 +163,79 @@ mod tests {
         // Different keys likely different buckets (not guaranteed)
         assert!(b1 >= 0 && b1 < 100);
         assert!(b3 >= 0 && b3 < 100);
+    }
+
+    // ── Additional tests for quality improvement ──────────────────
+
+    #[test]
+    fn test_jump_hash_negative_buckets() {
+        // Negative num_buckets should return 0
+        assert_eq!(jump_hash(12345, -1), 0);
+        assert_eq!(jump_hash(12345, -100), 0);
+    }
+
+    #[test]
+    fn test_jump_hash_single_bucket() {
+        // With 1 bucket, all keys map to 0
+        for key in 0..1000u64 {
+            assert_eq!(jump_hash(key, 1), 0);
+        }
+    }
+
+    #[test]
+    fn test_jump_hash_u128() {
+        let b1 = jump_hash_u128(0xDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0u128, 100);
+        let b2 = jump_hash_u128(0xDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0u128, 100);
+        assert_eq!(b1, b2);
+        assert!(b1 >= 0 && b1 < 100);
+    }
+
+    #[test]
+    fn test_jump_hash_u128_range() {
+        for i in 0..1000u128 {
+            let bucket = jump_hash_u128(i, 10);
+            assert!(bucket >= 0 && bucket < 10);
+        }
+    }
+
+    #[test]
+    fn test_fnv1a_hash_deterministic() {
+        let h1 = fnv1a_hash(b"test data");
+        let h2 = fnv1a_hash(b"test data");
+        assert_eq!(h1, h2);
+
+        let h3 = fnv1a_hash(b"different data");
+        assert_ne!(h1, h3);
+    }
+
+    #[test]
+    fn test_fnv1a_hash_empty_input() {
+        // Empty input should return the FNV offset basis
+        let h = fnv1a_hash(b"");
+        assert_eq!(h, 0xcbf29ce484222325);
+    }
+
+    #[test]
+    fn test_jump_hash_bytes_empty_key() {
+        // Empty key should still produce a valid bucket
+        let bucket = jump_hash_bytes(b"", 10);
+        assert!(bucket >= 0 && bucket < 10);
+    }
+
+    #[test]
+    fn test_jump_hash_two_buckets() {
+        // With 2 buckets, results should be 0 or 1
+        let mut count_0 = 0;
+        let mut count_1 = 0;
+        for key in 0..10000u64 {
+            match jump_hash(key, 2) {
+                0 => count_0 += 1,
+                1 => count_1 += 1,
+                other => panic!("unexpected bucket: {}", other),
+            }
+        }
+        // Both buckets should have some keys
+        assert!(count_0 > 3000);
+        assert!(count_1 > 3000);
     }
 }

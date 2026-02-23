@@ -3,9 +3,9 @@
 //! Predictive distributed caching for Python web frameworks.
 //! String keys, bytes values. Thread-safe.
 
-use pyo3::prelude::*;
-use pyo3::exceptions::PyValueError;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
+use pyo3::exceptions::PyValueError;
+use pyo3::prelude::*;
 
 use crate::cache::{AliceCache, CacheConfig};
 use crate::jump_hash;
@@ -38,12 +38,7 @@ impl PyAliceCache {
     /// Create with full configuration.
     #[staticmethod]
     #[pyo3(signature = (capacity=10000, num_nodes=1, node_id=0, enable_oracle=true))]
-    fn with_config(
-        capacity: usize,
-        num_nodes: i32,
-        node_id: u32,
-        enable_oracle: bool,
-    ) -> Self {
+    fn with_config(capacity: usize, num_nodes: i32, node_id: u32, enable_oracle: bool) -> Self {
         let config = CacheConfig {
             capacity,
             num_nodes,
@@ -236,7 +231,9 @@ fn jump_hash_batch<'py>(
     keys: PyReadonlyArray1<'py, u64>,
     num_buckets: i32,
 ) -> PyResult<Bound<'py, PyArray1<i32>>> {
-    let slice = keys.as_slice().map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let slice = keys
+        .as_slice()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
     let result = py.detach(|| {
         slice
             .iter()

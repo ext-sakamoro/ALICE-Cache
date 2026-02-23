@@ -4,7 +4,7 @@
 //!
 //! Author: Moroya Sakamoto
 
-use alice_analytics::{HyperLogLog, DDSketch, CountMinSketch};
+use alice_analytics::{CountMinSketch, DDSketch, HyperLogLog};
 
 /// Cache performance metrics collector
 pub struct CacheMetrics {
@@ -45,7 +45,9 @@ impl CacheMetrics {
     /// Cache hit rate (0.0 - 1.0)
     pub fn hit_rate(&self) -> f64 {
         let total = self.hits + self.misses;
-        if total == 0 { return 0.0; }
+        if total == 0 {
+            return 0.0;
+        }
         self.hits as f64 / total as f64
     }
 

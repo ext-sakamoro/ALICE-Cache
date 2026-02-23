@@ -6,7 +6,7 @@
 //! cargo run --example distributed_cache
 //! ```
 
-use alice_cache::{jump_hash, CacheConfig, AliceCache, CountMinSketch, Sketch4K};
+use alice_cache::{jump_hash, AliceCache, CacheConfig, CountMinSketch, Sketch4K};
 
 fn main() {
     println!("=== Distributed Cache Demo ===\n");
@@ -45,9 +45,18 @@ fn main() {
     }
     sketch.add(7u64);
 
-    println!("  Item 42 frequency: ~{} (actual: 1000)", sketch.estimate(42u64));
-    println!("  Item 99 frequency: ~{} (actual: 100)", sketch.estimate(99u64));
-    println!("  Item  7 frequency: ~{} (actual: 1)", sketch.estimate(7u64));
+    println!(
+        "  Item 42 frequency: ~{} (actual: 1000)",
+        sketch.estimate(42u64)
+    );
+    println!(
+        "  Item 99 frequency: ~{} (actual: 100)",
+        sketch.estimate(99u64)
+    );
+    println!(
+        "  Item  7 frequency: ~{} (actual: 1)",
+        sketch.estimate(7u64)
+    );
 
     // --- Per-node cache with config ---
     println!("\n--- Per-Node Cache ---\n");

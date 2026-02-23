@@ -155,7 +155,9 @@ mod tests {
             assert!(
                 estimate >= true_count,
                 "Key {} has true count {} but estimate {}",
-                i, true_count, estimate
+                i,
+                true_count,
+                estimate
             );
         }
     }
@@ -206,5 +208,126 @@ mod tests {
     fn test_sketch_size() {
         assert_eq!(Sketch4K::size_bytes(), 1024 * 4 + 8);
         assert_eq!(Sketch1K::size_bytes(), 256 * 4 + 8);
+    }
+
+    // ── Additional tests for quality improvement ──────────────────
+
+    #[test]
+    fn test_sketch_add_count() {
+        let mut sketch = Sketch4K::new();
+
+        sketch.add_count(12345, 50);
+        assert_eq!(sketch.estimate(12345), 50);
+        assert_eq!(sketch.total(), 50);
+
+        sketch.add_count(12345, 30);
+        assert_eq!(sketch.estimate(12345), 80);
+        assert_eq!(sketch.total(), 80);
+    }
+
+    #[test]
+    fn test_sketch_add_count_saturating() {
+        let mut sketch = Sketch4K::new();
+
+        // Adding counts that would exceed u8::MAX should saturate
+        sketch.add_count(12345, 200);
+        sketch.add_count(12345, 200);
+        assert_eq!(sketch.estimate(12345), 255);
+    }
+
+    #[test]
+    fn test_sketch_total_tracking() {
+        let mut sketch = Sketch4K::new();
+
+        for i in 0..100u64 {
+            sketch.add(i);
+        }
+        assert_eq!(sketch.total(), 100);
+
+        sketch.halve();
+        assert_eq!(sketch.total(), 50);
+
+        sketch.clear();
+        assert_eq!(sketch.total(), 0);
+    }
+
+    #[test]
+    fn test_sketch_default_trait() {
+        let sketch = Sketch4K::default();
+        assert_eq!(sketch.estimate(12345), 0);
+        assert_eq!(sketch.total(), 0);
+    }
+
+    #[test]
+    fn test_sketch_different_sizes() {
+        // Test Sketch1K (compact)
+        let mut s1k = Sketch1K::new();
+        for _ in 0..20 {
+            s1k.add(42);
+        }
+        assert_eq!(s1k.estimate(42), 20);
+
+        // Test Sketch16K (large)
+        let mut s16k = Sketch16K::new();
+        for _ in 0..20 {
+            s16k.add(42);
+        }
+        assert_eq!(s16k.estimate(42), 20);
+    }
+
+    #[test]
+    fn test_sketch_halve_rounds_down() {
+        let mut sketch = Sketch4K::new();
+
+        // Add odd count
+        for _ in 0..7 {
+            sketch.add(12345);
+        }
+        assert_eq!(sketch.estimate(12345), 7);
+
+        sketch.halve();
+        // 7 >> 1 = 3
+        assert_eq!(sketch.estimate(12345), 3);
+
+        sketch.halve();
+        // 3 >> 1 = 1
+        assert_eq!(sketch.estimate(12345), 1);
+
+        sketch.halve();
+        // 1 >> 1 = 0
+        assert_eq!(sketch.estimate(12345), 0);
+    }
+
+    #[test]
+    fn test_sketch_clone() {
+        let mut sketch = Sketch4K::new();
+
+        for _ in 0..30 {
+            sketch.add(12345);
+        }
+
+        let cloned = sketch.clone();
+        assert_eq!(cloned.estimate(12345), 30);
+        assert_eq!(cloned.total(), 30);
+
+        // Modifying original should not affect clone
+        sketch.clear();
+        assert_eq!(sketch.estimate(12345), 0);
+        assert_eq!(cloned.estimate(12345), 30);
+    }
+
+    #[test]
+    fn test_sketch_many_distinct_keys() {
+        let mut sketch = Sketch4K::new();
+
+        // Insert 500 distinct keys
+        for i in 0..500u64 {
+            sketch.add(i);
+        }
+
+        // Each key added once should have estimate >= 1 (no underestimate)
+        for i in 0..500u64 {
+            assert!(sketch.estimate(i) >= 1, "Key {} underestimated", i);
+        }
     }
 }

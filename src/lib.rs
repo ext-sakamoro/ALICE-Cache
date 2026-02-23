@@ -48,19 +48,19 @@ pub mod oracle;
 pub mod shard;
 pub mod sketch;
 
-#[cfg(feature = "pyo3")]
-pub mod python;
-#[cfg(feature = "crypto")]
-pub mod crypto_bridge;
 #[cfg(feature = "analytics")]
 pub mod analytics_bridge;
+#[cfg(feature = "crypto")]
+pub mod crypto_bridge;
+#[cfg(feature = "pyo3")]
+pub mod python;
 
 // Re-exports
 pub use cache::{AliceCache, CacheConfig, CacheStats, StandardCache};
 pub use jump_hash::{jump_hash, jump_hash_bytes, jump_hash_u128};
 pub use oracle::{MarkovOracle, SharedOracle};
 pub use shard::CacheShard;
-pub use sketch::{CountMinSketch, Sketch1K, Sketch4K, Sketch16K};
+pub use sketch::{CountMinSketch, Sketch16K, Sketch1K, Sketch4K};
 
 /// Version
 pub const VERSION: &str = "0.2.0-charred";
@@ -137,5 +137,32 @@ mod tests {
 
         assert!(sketch.estimate(1) > sketch.estimate(2));
         assert!(sketch.estimate(3) == 0);
+    }
+
+    #[test]
+    fn test_version_constant() {
+        assert_eq!(VERSION, "0.2.0-charred");
+    }
+
+    #[test]
+    fn test_standard_cache_alias() {
+        // StandardCache<K, V> should be interchangeable with AliceCache<K, V>
+        let cache: StandardCache<u32, u32> = StandardCache::new(100);
+        cache.put(1, 10);
+        assert_eq!(cache.get(&1), Some(10));
+    }
+
+    #[test]
+    fn test_integration_clear() {
+        let mut cache = AliceCache::<u32, u32>::new(100);
+
+        cache.put(1, 10);
+        cache.put(2, 20);
+        assert_eq!(cache.len(), 2);
+
+        cache.clear();
+        assert_eq!(cache.len(), 0);
+        assert!(cache.is_empty());
+        assert_eq!(cache.get(&1), None);
     }
 }

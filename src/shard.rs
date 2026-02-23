@@ -134,6 +134,12 @@ where
         self.inner.lock().entries.len()
     }
 
+    /// Returns true if the shard contains no items
+    #[inline(always)]
+    pub fn is_empty(&self) -> bool {
+        self.inner.lock().entries.is_empty()
+    }
+
     /// Clear all items
     pub fn clear(&mut self) {
         let mut guard = self.inner.lock();
@@ -322,5 +328,136 @@ mod tests {
         assert_eq!(shard.get(&2, 2), None); // removed
         assert_eq!(shard.get(&3, 3), Some(300));
         assert_eq!(shard.get(&4, 4), Some(400));
+    }
+
+    // ── Additional tests for quality improvement ──────────────────
+
+    #[test]
+    fn test_shard_remove_nonexistent() {
+        let shard = CacheShard::<u32, String>::new(10);
+
+        shard.put(1, "one".to_string(), 1);
+
+        // Removing a key that does not exist should return None
+        assert_eq!(shard.remove(&999), None);
+        assert_eq!(shard.len(), 1); // original item still present
+    }
+
+    #[test]
+    fn test_shard_remove_all_items() {
+        let shard = CacheShard::<u32, u32>::new(10);
+
+        for i in 0..5 {
+            shard.put(i, i * 10, i as u64);
+        }
+        assert_eq!(shard.len(), 5);
+
+        for i in 0..5 {
+            shard.remove(&i);
+        }
+        assert_eq!(shard.len(), 0);
+    }
+
+    #[test]
+    fn test_shard_remove_first_item() {
+        let shard = CacheShard::<u32, u32>::new(10);
+
+        shard.put(10, 100, 10);
+        shard.put(20, 200, 20);
+        shard.put(30, 300, 30);
+
+        // Remove the first inserted item (index 0) - triggers swap_remove
+        let removed = shard.remove(&10);
+        assert_eq!(removed, Some(100));
+        assert_eq!(shard.len(), 2);
+
+        // Remaining items should still be accessible
+        assert!(shard.contains(&20));
+        assert!(shard.contains(&30));
+        assert_eq!(shard.get(&20, 20), Some(200));
+        assert_eq!(shard.get(&30, 30), Some(300));
+    }
+
+    #[test]
+    fn test_shard_remove_last_item() {
+        let shard = CacheShard::<u32, u32>::new(10);
+
+        shard.put(10, 100, 10);
+        shard.put(20, 200, 20);
+        shard.put(30, 300, 30);
+
+        // Remove the last inserted item (no swap needed)
+        let removed = shard.remove(&30);
+        assert_eq!(removed, Some(300));
+        assert_eq!(shard.len(), 2);
+
+        assert!(shard.contains(&10));
+        assert!(shard.contains(&20));
+    }
+
+    #[test]
+    fn test_shard_empty_operations() {
+        let shard = CacheShard::<u32, u32>::new(10);
+
+        assert_eq!(shard.len(), 0);
+        assert_eq!(shard.get(&1, 1), None);
+        assert!(!shard.contains(&1));
+        assert_eq!(shard.remove(&1), None);
+    }
+
+    #[test]
+    fn test_shard_capacity_one() {
+        let shard = CacheShard::<u32, u32>::new(1);
+
+        shard.put(1, 10, 1);
+        assert_eq!(shard.len(), 1);
+
+        // Inserting another key should trigger eviction
+        shard.put(2, 20, 2);
+        assert_eq!(shard.len(), 1);
+
+        // One of the two keys should remain
+        let has_1 = shard.contains(&1);
+        let has_2 = shard.contains(&2);
+        assert!(has_1 || has_2);
+    }
+
+    #[test]
+    fn test_xorshift64_not_zero() {
+        // xorshift64 should never produce 0 from a non-zero seed
+        let mut state = 0xDEAD_BEEF_CAFE_BABEu64;
+        for _ in 0..1000 {
+            state = xorshift64(state);
+            assert_ne!(state, 0, "xorshift64 produced 0");
+        }
+    }
+
+    #[test]
+    fn test_shard_sequential_remove_and_reinsert() {
+        let shard = CacheShard::<u32, u32>::new(10);
+
+        // Insert items
+        for i in 0..5 {
+            shard.put(i, i * 10, i as u64);
+        }
+
+        // Remove all from the middle outward
+        shard.remove(&2);
+        shard.remove(&1);
+        shard.remove(&3);
+
+        assert_eq!(shard.len(), 2);
+        assert!(shard.contains(&0));
+        assert!(shard.contains(&4));
+
+        // Re-insert removed keys
+        shard.put(1, 111, 1);
+        shard.put(2, 222, 2);
+        shard.put(3, 333, 3);
+
+        assert_eq!(shard.get(&1, 1), Some(111));
+        assert_eq!(shard.get(&2, 2), Some(222));
+        assert_eq!(shard.get(&3, 3), Some(333));
+        assert_eq!(shard.len(), 5);
     }
 }

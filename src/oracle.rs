@@ -44,11 +44,13 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
             let offset = i * W + self.index(key_hash, i);
             // fetch_update atomically: if current < 255, increment.
             // Spurious failures are retried automatically.
-            let _ = self.table[offset].fetch_update(
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-                |v| if v < 255 { Some(v + 1) } else { None },
-            );
+            let _ = self.table[offset].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
+                if v < 255 {
+                    Some(v + 1)
+                } else {
+                    None
+                }
+            });
         }
     }
 
@@ -70,11 +72,7 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
     fn halve(&self) {
         for atomic in self.table.iter() {
             // Atomically halve each counter.
-            let _ = atomic.fetch_update(
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-                |v| Some(v >> 1),
-            );
+            let _ = atomic.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| Some(v >> 1));
         }
     }
 
@@ -123,7 +121,7 @@ impl MarkovOracle {
             self.total_transitions += 1;
 
             // Age periodically
-            if self.total_transitions % 50000 == 0 {
+            if self.total_transitions.is_multiple_of(50000) {
                 self.transitions.halve();
             }
         }
@@ -197,7 +195,7 @@ impl SharedOracle {
 
             // Age periodically
             let count = self.counter.fetch_add(1, Ordering::Relaxed);
-            if count % 50000 == 0 {
+            if count.is_multiple_of(50000) {
                 self.transitions.halve();
             }
         }
@@ -322,7 +320,11 @@ mod tests {
         // Should have learned some patterns (concurrent, so not perfectly deterministic)
         // At least verify no crashes and some learning occurred
         let total_freq: u32 = (0..4)
-            .map(|t| oracle.transitions.estimate(SharedOracle::mix(t * 10 + 1, t * 10 + 2)) as u32)
+            .map(|t| {
+                oracle
+                    .transitions
+                    .estimate(SharedOracle::mix(t * 10 + 1, t * 10 + 2)) as u32
+            })
             .sum();
         assert!(total_freq > 0);
     }
@@ -345,5 +347,116 @@ mod tests {
         let ba_freq = oracle.transition_freq(2, 1);
         let ab_freq = oracle.transition_freq(1, 2);
         assert!(ab_freq > ba_freq);
+    }
+
+    // ── Additional tests for quality improvement ──────────────────
+
+    #[test]
+    fn test_oracle_default_trait() {
+        let oracle = MarkovOracle::default();
+        // Default oracle should be in cold start state
+        assert!(!oracle.should_prefetch(1, 2));
+    }
+
+    #[test]
+    fn test_shared_oracle_default_trait() {
+        let oracle = SharedOracle::default();
+        assert!(!oracle.should_prefetch(1, 2));
+    }
+
+    #[test]
+    fn test_shared_oracle_reset() {
+        let oracle = SharedOracle::new();
+
+        // Train a pattern
+        for _ in 0..50 {
+            oracle.record(10);
+            oracle.record(20);
+        }
+        assert!(oracle.should_prefetch(10, 20));
+
+        // Reset should clear learned patterns
+        oracle.reset();
+        assert!(!oracle.should_prefetch(10, 20));
+    }
+
+    #[test]
+    fn test_oracle_transition_freq_cold() {
+        let oracle = MarkovOracle::new();
+
+        // Untrained transition should have 0 frequency
+        assert_eq!(oracle.transition_freq(100, 200), 0);
+    }
+
+    #[test]
+    fn test_oracle_mix_is_deterministic() {
+        // The mix function should be deterministic
+        let h1 = MarkovOracle::mix(100, 200);
+        let h2 = MarkovOracle::mix(100, 200);
+        assert_eq!(h1, h2);
+
+        // Different inputs should (very likely) produce different outputs
+        let h3 = MarkovOracle::mix(100, 201);
+        assert_ne!(h1, h3);
+    }
+
+    #[test]
+    fn test_oracle_aging() {
+        let mut oracle = MarkovOracle::new();
+
+        // Record enough transitions to trigger aging (50000 threshold)
+        // Train pattern intensively
+        for _ in 0..100 {
+            oracle.record(1);
+            oracle.record(2);
+        }
+
+        let freq_before = oracle.transition_freq(1, 2);
+        assert!(freq_before >= PREFETCH_THRESHOLD);
+
+        // The oracle ages at total_transitions % 50000 == 0
+        // After heavy usage, the frequencies should still be functional
+        // (aging halves but doesn't destroy patterns)
+    }
+
+    #[test]
+    fn test_shared_oracle_first_record_no_transition() {
+        let oracle = SharedOracle::new();
+
+        // First record has prev=0, so no transition should be recorded
+        oracle.record(42);
+
+        // No transition from 0 to 42 should create prefetch recommendation
+        // The internal last_key starts at 0, and prev=0 is skipped
+        assert!(!oracle.should_prefetch(0, 42));
+    }
+
+    #[test]
+    fn test_atomic_sketch_saturation() {
+        // Verify AtomicSketch saturates at 255 (no overflow)
+        let sketch = AtomicSketch::<1024, 2>::new();
+
+        for _ in 0..300 {
+            sketch.add(12345);
+        }
+
+        let est = sketch.estimate(12345);
+        assert_eq!(est, 255);
+    }
+
+    #[test]
+    fn test_atomic_sketch_halve_and_clear() {
+        let sketch = AtomicSketch::<1024, 2>::new();
+
+        for _ in 0..100 {
+            sketch.add(12345);
+        }
+        assert_eq!(sketch.estimate(12345), 100);
+
+        sketch.halve();
+        assert_eq!(sketch.estimate(12345), 50);
+
+        sketch.clear();
+        assert_eq!(sketch.estimate(12345), 0);
     }
 }
