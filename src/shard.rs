@@ -51,6 +51,7 @@ where
     V: Clone,
 {
     /// Create new shard with given capacity
+    #[must_use]
     pub fn new(capacity: usize) -> Self {
         Self {
             inner: Mutex::new(ShardInner {
@@ -124,18 +125,21 @@ where
 
     /// Check if key exists
     #[inline(always)]
+    #[must_use]
     pub fn contains(&self, key: &K) -> bool {
         self.inner.lock().lookup.contains_key(key)
     }
 
     /// Current number of items
     #[inline(always)]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.inner.lock().entries.len()
     }
 
     /// Returns true if the shard contains no items
     #[inline(always)]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.inner.lock().entries.is_empty()
     }
@@ -287,7 +291,7 @@ mod tests {
 
         // Key 1 should likely survive due to high frequency
         let has_key1 = shard.contains(&1);
-        println!("High-frequency key 1 survived: {}", has_key1);
+        println!("High-frequency key 1 survived: {has_key1}");
     }
 
     #[test]

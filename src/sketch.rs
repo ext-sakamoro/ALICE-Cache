@@ -1,7 +1,7 @@
 //! Count-Min Sketch (Optimized)
 //!
 //! Probabilistic frequency counter using sub-linear space.
-//! Core component of TinyLFU admission policy.
+//! Core component of `TinyLFU` admission policy.
 //!
 //! - **Space**: O(w × d) where w = width, d = depth
 //! - **Error**: P(overestimate > ε) ≤ δ for w = ⌈e/ε⌉, d = ⌈ln(1/δ)⌉
@@ -21,6 +21,7 @@ pub struct CountMinSketch<const W: usize, const D: usize> {
 
 impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     /// Create a new empty sketch
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             table: [[0; W]; D],
@@ -38,7 +39,7 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     #[inline(always)]
     pub fn add_count(&mut self, key_hash: u64, count: u8) {
         for i in 0..D {
-            let idx = self.index(key_hash, i);
+            let idx = Self::index(key_hash, i);
             self.table[i][idx] = self.table[i][idx].saturating_add(count);
         }
         self.total = self.total.saturating_add(count as u64);
@@ -49,10 +50,11 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     /// Returns the minimum count across all hash functions.
     /// This is always >= true count (no underestimate).
     #[inline(always)]
+    #[must_use]
     pub fn estimate(&self, key_hash: u64) -> u8 {
         let mut min_count = u8::MAX;
         for i in 0..D {
-            let idx = self.index(key_hash, i);
+            let idx = Self::index(key_hash, i);
             min_count = min_count.min(self.table[i][idx]);
         }
         min_count
@@ -66,7 +68,7 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
         self.total = 0;
     }
 
-    /// Halve all counters (aging mechanism for TinyLFU)
+    /// Halve all counters (aging mechanism for `TinyLFU`)
     ///
     /// Called periodically to prevent counter saturation
     /// and adapt to changing access patterns.
@@ -81,15 +83,16 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
 
     /// Total number of items added
     #[inline(always)]
+    #[must_use]
     pub fn total(&self) -> u64 {
         self.total
     }
 
     /// Calculate index for a given hash and row
     #[inline(always)]
-    fn index(&self, key_hash: u64, row: usize) -> usize {
+    fn index(key_hash: u64, row: usize) -> usize {
         // Different hash for each row using golden ratio mixing
-        const GOLDEN: u64 = 0x9E3779B97F4A7C15;
+        const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
         let mixed = key_hash.wrapping_add((row as u64).wrapping_mul(GOLDEN));
         // Fast modulo for power-of-2 widths, otherwise use remainder
         if W.is_power_of_two() {
@@ -100,6 +103,7 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     }
 
     /// Memory usage in bytes
+    #[must_use]
     pub const fn size_bytes() -> usize {
         W * D + 8 // table + total counter
     }
@@ -143,7 +147,7 @@ mod tests {
 
         // Add various keys
         for i in 0..1000u64 {
-            for _ in 0..(i % 10 + 1) {
+            for _ in 0..=(i % 10) {
                 sketch.add(i);
             }
         }
@@ -154,10 +158,7 @@ mod tests {
             let estimate = sketch.estimate(i);
             assert!(
                 estimate >= true_count,
-                "Key {} has true count {} but estimate {}",
-                i,
-                true_count,
-                estimate
+                "Key {i} has true count {true_count} but estimate {estimate}",
             );
         }
     }
@@ -327,7 +328,7 @@ mod tests {
 
         // Each key added once should have estimate >= 1 (no underestimate)
         for i in 0..500u64 {
-            assert!(sketch.estimate(i) >= 1, "Key {} underestimated", i);
+            assert!(sketch.estimate(i) >= 1, "Key {i} underestimated");
         }
     }
 }

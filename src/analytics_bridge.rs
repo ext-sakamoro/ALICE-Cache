@@ -16,6 +16,7 @@ pub struct CacheMetrics {
 }
 
 impl CacheMetrics {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             unique_keys: HyperLogLog::new(),
@@ -43,6 +44,7 @@ impl CacheMetrics {
     }
 
     /// Cache hit rate (0.0 - 1.0)
+    #[must_use]
     pub fn hit_rate(&self) -> f64 {
         let total = self.hits + self.misses;
         if total == 0 {
@@ -52,21 +54,25 @@ impl CacheMetrics {
     }
 
     /// Median access latency (microseconds)
+    #[must_use]
     pub fn p50_latency(&self) -> f64 {
         self.latency.quantile(0.50)
     }
 
     /// 99th percentile access latency (microseconds)
+    #[must_use]
     pub fn p99_latency(&self) -> f64 {
         self.latency.quantile(0.99)
     }
 
     /// Estimated unique key count
+    #[must_use]
     pub fn unique_keys(&self) -> f64 {
         self.unique_keys.count()
     }
 
     /// Estimated frequency of a specific key
+    #[must_use]
     pub fn key_frequency(&self, key_hash: u64) -> u64 {
         self.hot_keys.estimate(key_hash)
     }

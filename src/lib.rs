@@ -1,3 +1,16 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss,
+    clippy::cast_lossless,
+    clippy::similar_names,
+    clippy::many_single_char_names,
+    clippy::module_name_repetitions,
+    clippy::inline_always,
+    clippy::too_many_lines
+)]
+
 //! # ALICE-Cache "Charred" (Optimized)
 //!
 //! **Predictive Distributed Caching System**
@@ -6,20 +19,29 @@
 //!
 //! ## Charred Architecture
 //!
-//! - **256 Shards**: Eliminates lock contention with parking_lot Mutex
+//! - **256 Shards**: Eliminates lock contention with `parking_lot` Mutex
 //! - **Slab Allocation**: Dense `Vec<Entry>` for true O(1) random sampling
 //! - **Sampled Eviction**: Redis-style random sampling, no iteration
-//! - **Lock-Free Oracle**: AtomicU8 sketch, zero mutex contention
+//! - **Lock-Free Oracle**: `AtomicU8` sketch, zero mutex contention
 //! - **Jump Hash**: O(1) distributed key routing
 //!
 //! ## Performance
 //!
 //! | Operation | Complexity | Notes |
 //! |-----------|------------|-------|
-//! | Get | O(1) | HashMap lookup + Vec index |
+//! | Get | O(1) | `HashMap` lookup + Vec index |
 //! | Put | O(1) | Slab append or swap |
 //! | Evict | O(k) | k=5 random Vec probes |
 //! | Predict | O(1) | Lock-free atomic sketch |
+//!
+//! ## Feature Flags
+//!
+//! | Feature | Description |
+//! |---------|-------------|
+//! | `std` (default) | Standard library support |
+//! | `analytics` | Cache metrics via ALICE-Analytics (`HyperLogLog`, `DDSketch`) |
+//! | `crypto` | Signed/encrypted entries via ALICE-Crypto (`BLAKE3`, `XChaCha20`) |
+//! | `pyo3` | Python FFI bindings (`PyO3`) |
 //!
 //! ## Example
 //!

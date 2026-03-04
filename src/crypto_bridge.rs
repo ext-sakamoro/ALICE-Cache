@@ -19,6 +19,7 @@ pub struct SignedEntry {
 
 impl SignedEntry {
     /// Create a new signed entry from raw data.
+    #[must_use]
     pub fn new(data: Vec<u8>) -> Self {
         let h = hash(&data);
         Self {
@@ -30,6 +31,7 @@ impl SignedEntry {
     /// Verify the entry's integrity.
     ///
     /// Returns `true` if the data has not been modified since creation.
+    #[must_use]
     pub fn verify(&self) -> bool {
         let h = hash(&self.data);
         *h.as_bytes() == self.hash
@@ -74,6 +76,7 @@ impl CryptoCache {
     }
 
     /// Create from an existing key.
+    #[must_use]
     pub fn with_key(key: Key) -> Self {
         Self {
             key,
@@ -111,6 +114,7 @@ impl CryptoCache {
 
     /// Check if two encrypted entries contain the same plaintext
     /// (without decrypting — hash comparison only).
+    #[must_use]
     pub fn entries_equal(a: &EncryptedEntry, b: &EncryptedEntry) -> bool {
         a.plaintext_hash == b.plaintext_hash
     }

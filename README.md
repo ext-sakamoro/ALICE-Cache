@@ -300,6 +300,21 @@ Cache hit/miss metrics with streaming telemetry.
 
 Enable: `alice-cache = { features = ["analytics"] }`
 
+## Limitations
+
+- Count-Min Sketch counters are `u8` (max 255) — halving is required for long-running workloads
+- Markov Oracle uses `AtomicU8` with `Relaxed` ordering — some transitions may be lost under extreme contention
+- Jump Hash requires `num_buckets` to be known at routing time (no dynamic discovery)
+
+## Quality
+
+| Metric | Value |
+|--------|-------|
+| **Tests** | 86 passed + 1 doc-test |
+| **clippy pedantic** | 0 warnings |
+| **cargo fmt** | clean |
+| **`#[must_use]`** | all pub value-returning functions |
+
 ## License
 
 **GNU AGPLv3**

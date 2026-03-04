@@ -6,7 +6,7 @@
 //! cargo run --example basic_cache
 //! ```
 
-use alice_cache::{AliceCache, CacheConfig};
+use alice_cache::AliceCache;
 
 fn main() {
     println!("=== ALICE-Cache Basic Demo ===\n");

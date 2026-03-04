@@ -1,5 +1,10 @@
 # Contributing to ALICE-Cache
 
+## Prerequisites
+
+- Rust 1.70+ (stable)
+- `cargo fmt`, `cargo clippy` components installed
+
 ## Build
 
 ```bash
@@ -12,15 +17,20 @@ cargo build
 cargo test --lib --tests
 ```
 
-Note: examples may have compilation issues independent of the library.
-
 ## Lint
 
 ```bash
-cargo clippy --lib --tests -- -W clippy::all
+cargo clippy --lib --tests -- -W clippy::all -W clippy::pedantic
 cargo fmt -- --check
 cargo doc --no-deps 2>&1 | grep warning
 ```
+
+## Code Style
+
+- `cargo fmt` must pass with no diff
+- `cargo clippy --lib --tests -- -W clippy::pedantic` must pass with 0 warnings
+- All public value-returning functions must have `#[must_use]`
+- Unsafe code must have `// Safety:` comments explaining invariants
 
 ## Optional Features
 

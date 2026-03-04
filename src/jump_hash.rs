@@ -1,11 +1,11 @@
 //! Jump Consistent Hash (Optimized)
 //!
-//! Maps a 64-bit key to a bucket in range [0, num_buckets).
+//! Maps a 64-bit key to a bucket in range [0, `num_buckets`).
 //! Google's algorithm for distributed systems.
 //!
 //! - **Time Complexity**: O(ln n) jumps, but extremely fast
 //! - **Space Complexity**: O(1) - No ring structure needed
-//! - **Property**: When num_buckets changes, only 1/n keys move
+//! - **Property**: When `num_buckets` changes, only 1/n keys move
 
 /// Jump Consistent Hash
 ///
@@ -20,9 +20,10 @@
 /// assert!(bucket >= 0 && bucket < 10);
 /// ```
 /// Precomputed constant 2^31 for jump hash probability calculation
-const TWO_POW_31: f64 = 2147483648.0;
+const TWO_POW_31: f64 = 2_147_483_648.0;
 
 #[inline(always)]
+#[must_use]
 pub fn jump_hash(mut key: u64, num_buckets: i32) -> i32 {
     if num_buckets <= 0 {
         return 0;
@@ -34,7 +35,7 @@ pub fn jump_hash(mut key: u64, num_buckets: i32) -> i32 {
     while j < num_buckets as i64 {
         b = j;
         // Linear congruential generator
-        key = key.wrapping_mul(2862933555777941757).wrapping_add(1);
+        key = key.wrapping_mul(2_862_933_555_777_941_757).wrapping_add(1);
 
         // Convert to float for probability calculation
         let key_float = ((key >> 33) + 1) as f64;
@@ -49,6 +50,7 @@ pub fn jump_hash(mut key: u64, num_buckets: i32) -> i32 {
 
 /// Jump hash with u128 key support (for content-addressed storage)
 #[inline]
+#[must_use]
 pub fn jump_hash_u128(key: u128, num_buckets: i32) -> i32 {
     // Mix high and low bits
     let mixed = (key as u64) ^ ((key >> 64) as u64);
@@ -57,6 +59,7 @@ pub fn jump_hash_u128(key: u128, num_buckets: i32) -> i32 {
 
 /// Jump hash for byte slices (generic key support)
 #[inline]
+#[must_use]
 pub fn jump_hash_bytes(key: &[u8], num_buckets: i32) -> i32 {
     let hash = fnv1a_hash(key);
     jump_hash(hash, num_buckets)
@@ -65,8 +68,8 @@ pub fn jump_hash_bytes(key: &[u8], num_buckets: i32) -> i32 {
 /// FNV-1a hash for byte slices
 #[inline]
 fn fnv1a_hash(data: &[u8]) -> u64 {
-    const FNV_OFFSET: u64 = 0xcbf29ce484222325;
-    const FNV_PRIME: u64 = 0x100000001b3;
+    const FNV_OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
+    const FNV_PRIME: u64 = 0x0000_0100_0000_01b3;
 
     let mut hash = FNV_OFFSET;
     for &byte in data {
@@ -84,14 +87,14 @@ mod tests {
     fn test_jump_hash_range() {
         for i in 0..1000 {
             let bucket = jump_hash(i, 10);
-            assert!(bucket >= 0 && bucket < 10);
+            assert!((0..10).contains(&bucket));
         }
     }
 
     #[test]
     fn test_jump_hash_consistency() {
         // Same key should always map to same bucket
-        let key = 0xDEADBEEF_u64;
+        let key = 0xDEAD_BEEF_u64;
         let b1 = jump_hash(key, 100);
         let b2 = jump_hash(key, 100);
         assert_eq!(b1, b2);
@@ -124,7 +127,7 @@ mod tests {
     fn test_jump_hash_distribution() {
         // Check roughly uniform distribution
         let mut buckets = [0u32; 10];
-        let total = 100000;
+        let total = 100_000;
 
         for key in 0..total {
             let b = jump_hash(key, 10) as usize;
@@ -137,10 +140,7 @@ mod tests {
             let deviation = (count as i64 - expected as i64).abs() as f64 / expected as f64;
             assert!(
                 deviation < 0.1,
-                "Bucket {} has {}, expected ~{} (deviation: {:.1}%)",
-                i,
-                count,
-                expected,
+                "Bucket {i} has {count}, expected ~{expected} (deviation: {:.1}%)",
                 deviation * 100.0
             );
         }
@@ -161,8 +161,8 @@ mod tests {
 
         let b3 = jump_hash_bytes(b"world", 100);
         // Different keys likely different buckets (not guaranteed)
-        assert!(b1 >= 0 && b1 < 100);
-        assert!(b3 >= 0 && b3 < 100);
+        assert!((0..100).contains(&b1));
+        assert!((0..100).contains(&b3));
     }
 
     // ── Additional tests for quality improvement ──────────────────
@@ -187,14 +187,14 @@ mod tests {
         let b1 = jump_hash_u128(0xDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0u128, 100);
         let b2 = jump_hash_u128(0xDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0u128, 100);
         assert_eq!(b1, b2);
-        assert!(b1 >= 0 && b1 < 100);
+        assert!((0..100).contains(&b1));
     }
 
     #[test]
     fn test_jump_hash_u128_range() {
         for i in 0..1000u128 {
             let bucket = jump_hash_u128(i, 10);
-            assert!(bucket >= 0 && bucket < 10);
+            assert!((0..10).contains(&bucket));
         }
     }
 
@@ -212,14 +212,14 @@ mod tests {
     fn test_fnv1a_hash_empty_input() {
         // Empty input should return the FNV offset basis
         let h = fnv1a_hash(b"");
-        assert_eq!(h, 0xcbf29ce484222325);
+        assert_eq!(h, 0xcbf2_9ce4_8422_2325);
     }
 
     #[test]
     fn test_jump_hash_bytes_empty_key() {
         // Empty key should still produce a valid bucket
         let bucket = jump_hash_bytes(b"", 10);
-        assert!(bucket >= 0 && bucket < 10);
+        assert!((0..10).contains(&bucket));
     }
 
     #[test]
@@ -231,7 +231,7 @@ mod tests {
             match jump_hash(key, 2) {
                 0 => count_0 += 1,
                 1 => count_1 += 1,
-                other => panic!("unexpected bucket: {}", other),
+                other => panic!("unexpected bucket: {other}"),
             }
         }
         // Both buckets should have some keys

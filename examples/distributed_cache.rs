@@ -6,7 +6,7 @@
 //! cargo run --example distributed_cache
 //! ```
 
-use alice_cache::{jump_hash, AliceCache, CacheConfig, CountMinSketch, Sketch4K};
+use alice_cache::{jump_hash, AliceCache, CacheConfig, Sketch4K};
 
 fn main() {
     println!("=== Distributed Cache Demo ===\n");
@@ -14,7 +14,7 @@ fn main() {
     // --- Jump Consistent Hash ---
     println!("--- Jump Hash Distribution (4 nodes) ---\n");
 
-    let num_nodes = 4u32;
+    let num_nodes = 4i32;
     let mut distribution = [0u32; 4];
 
     for key in 0..10000u64 {

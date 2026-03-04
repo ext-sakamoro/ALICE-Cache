@@ -15,3 +15,6 @@ All notable changes to ALICE-Cache will be documented in this file.
 - `python` — (feature `pyo3`) Python bindings
 - `no_std` support with `alloc` fallback
 - 86 unit tests + 1 doc-test
+- CI/CD via GitHub Actions (test, clippy, fmt, doc)
+- `#[must_use]` on all public value-returning functions
+- clippy pedantic: 0 warnings

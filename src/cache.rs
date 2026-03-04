@@ -1,8 +1,8 @@
-//! AliceCache "Inferno" (Optimized)
+//! `AliceCache` "Inferno" (Optimized)
 //!
 //! **Architecture**:
-//! - **Storage**: Sharded Flat HashMap (No Linked Lists, No Pointers)
-//! - **Eviction**: Random Sampled TinyLFU (Redis-style, O(1))
+//! - **Storage**: Sharded Flat `HashMap` (No Linked Lists, No Pointers)
+//! - **Eviction**: Random Sampled `TinyLFU` (Redis-style, O(1))
 //! - **Prediction**: Markov Oracle for prefetching
 //!
 //! Zero allocation on hot paths. Cache locality maximized.
@@ -47,6 +47,7 @@ pub struct PaddedAtomicU64 {
 }
 
 impl PaddedAtomicU64 {
+    #[must_use]
     pub const fn new(v: u64) -> Self {
         Self {
             value: AtomicU64::new(v),
@@ -79,6 +80,7 @@ impl core::ops::DerefMut for PaddedAtomicU64 {
 impl CacheStats {
     /// Hit rate (0.0 to 1.0)
     #[inline(always)]
+    #[must_use]
     pub fn hit_rate(&self) -> f64 {
         let hits = self.hits.load(Ordering::Relaxed);
         let misses = self.misses.load(Ordering::Relaxed);
@@ -130,14 +132,14 @@ impl Default for CacheConfig {
 /// High-performance Sharded Cache with Predictive Oracle
 ///
 /// Features:
-/// - 256 shards with parking_lot Mutex (minimal contention)
+/// - 256 shards with `parking_lot` Mutex (minimal contention)
 /// - Sampled eviction (Redis-style, O(1))
 /// - Markov oracle for access prediction
 /// - Jump consistent hash for distributed routing
 pub struct AliceCache<K, V> {
     /// Shards (power of 2 for fast modulo)
     shards: Vec<CacheShard<K, V>>,
-    /// Shard mask (num_shards - 1) for fast modulo
+    /// Shard mask (`num_shards` - 1) for fast modulo
     shard_mask: usize,
     /// Hash builder
     hash_builder: ahash::RandomState,
@@ -155,6 +157,7 @@ where
     V: Clone + Send + Sync,
 {
     /// Create new cache with given capacity
+    #[must_use]
     pub fn new(capacity: usize) -> Self {
         Self::with_config(CacheConfig {
             capacity,
@@ -163,6 +166,11 @@ where
     }
 
     /// Create new cache with custom configuration
+    ///
+    /// # Panics
+    ///
+    /// Panics if `num_shards` is not a power of two.
+    #[must_use]
     pub fn with_config(config: CacheConfig) -> Self {
         assert!(
             config.num_shards.is_power_of_two(),
@@ -239,6 +247,7 @@ where
 
     /// Check if key exists
     #[inline(always)]
+    #[must_use]
     pub fn contains(&self, key: &K) -> bool {
         let (shard_idx, _) = self.get_shard_idx(key);
         self.shards[shard_idx].contains(key)
@@ -246,6 +255,7 @@ where
 
     /// Check if oracle recommends prefetching candidate after current
     #[inline(always)]
+    #[must_use]
     pub fn should_prefetch(&self, current: &K, candidate: &K) -> bool {
         if let Some(ref oracle) = self.oracle {
             let current_hash = self.hash_key(current);
@@ -258,6 +268,7 @@ where
 
     /// Get which distributed node owns a key (Jump Consistent Hash)
     #[inline(always)]
+    #[must_use]
     pub fn owner_node(&self, key: &K) -> u32 {
         let hash = self.hash_key(key);
         jump_hash(hash, self.config.num_nodes) as u32
@@ -265,31 +276,37 @@ where
 
     /// Check if this node owns the key
     #[inline(always)]
+    #[must_use]
     pub fn is_local_owner(&self, key: &K) -> bool {
         self.owner_node(key) == self.config.node_id
     }
 
     /// Current number of items (sum of all shards)
+    #[must_use]
     pub fn len(&self) -> usize {
-        self.shards.iter().map(|s| s.len()).sum()
+        self.shards.iter().map(super::shard::CacheShard::len).sum()
     }
 
     /// Check if cache is empty
+    #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.shards.iter().all(|s| s.len() == 0)
+        self.shards.iter().all(super::shard::CacheShard::is_empty)
     }
 
     /// Total capacity
+    #[must_use]
     pub fn capacity(&self) -> usize {
         self.config.capacity
     }
 
     /// Get statistics reference
+    #[must_use]
     pub fn stats(&self) -> &CacheStats {
         &self.stats
     }
 
     /// Hit rate (0.0 to 1.0)
+    #[must_use]
     pub fn hit_rate(&self) -> f64 {
         self.stats.hit_rate()
     }
@@ -320,7 +337,15 @@ where
     }
 }
 
-// Safety: AliceCache is thread-safe
+// Safety: `AliceCache` is thread-safe because:
+// - Each `CacheShard` is protected by `parking_lot::Mutex`, ensuring exclusive
+//   mutable access to the inner `HashMap` + `Vec<Entry>` per shard.
+// - `CacheStats` uses `AtomicU64` (no shared mutable state without atomics).
+// - `SharedOracle` uses only `AtomicU8`/`AtomicU64` (lock-free, no mutex needed).
+// - The `ahash::RandomState` hash builder is read-only after construction.
+// All fields are either `Send + Sync` by themselves or guarded by synchronization
+// primitives, so `AliceCache<K, V>` is safe to share across threads provided
+// `K: Send + Sync` and `V: Send + Sync`.
 unsafe impl<K: Send + Sync, V: Send + Sync> Send for AliceCache<K, V> {}
 unsafe impl<K: Send + Sync, V: Send + Sync> Sync for AliceCache<K, V> {}
 
@@ -461,7 +486,7 @@ mod tests {
         }
 
         // Should have some items
-        assert!(cache.len() > 0);
+        assert!(!cache.is_empty());
     }
 
     // ── Additional tests for quality improvement ──────────────────

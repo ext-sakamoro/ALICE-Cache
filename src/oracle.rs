@@ -14,7 +14,7 @@ extern crate alloc;
 /// Minimum frequency threshold for prefetch recommendation
 const PREFETCH_THRESHOLD: u8 = 3;
 
-/// Lock-Free Count-Min Sketch with AtomicU8 counters
+/// Lock-Free Count-Min Sketch with `AtomicU8` counters
 struct AtomicSketch<const W: usize, const D: usize> {
     /// Flattened array: table[row][col] -> table[row * W + col]
     /// Boxed to prevent stack overflow on large W
@@ -41,7 +41,7 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
     #[inline(always)]
     fn add(&self, key_hash: u64) {
         for i in 0..D {
-            let offset = i * W + self.index(key_hash, i);
+            let offset = i * W + Self::index(key_hash, i);
             // fetch_update atomically: if current < 255, increment.
             // Spurious failures are retried automatically.
             let _ = self.table[offset].fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| {
@@ -59,7 +59,7 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
     fn estimate(&self, key_hash: u64) -> u8 {
         let mut min_count = u8::MAX;
         for i in 0..D {
-            let offset = i * W + self.index(key_hash, i);
+            let offset = i * W + Self::index(key_hash, i);
             let val = self.table[offset].load(Ordering::Relaxed);
             min_count = min_count.min(val);
         }
@@ -70,7 +70,7 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
     ///
     /// Uses `fetch_update` to avoid the racy load-store pattern.
     fn halve(&self) {
-        for atomic in self.table.iter() {
+        for atomic in &self.table {
             // Atomically halve each counter.
             let _ = atomic.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| Some(v >> 1));
         }
@@ -78,15 +78,15 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
 
     /// Clear all counters
     fn clear(&self) {
-        for atomic in self.table.iter() {
+        for atomic in &self.table {
             atomic.store(0, Ordering::Relaxed);
         }
     }
 
     /// Hash to index (assumes W is power of 2)
     #[inline(always)]
-    fn index(&self, key_hash: u64, row: usize) -> usize {
-        const GOLDEN: u64 = 0x9E3779B97F4A7C15;
+    fn index(key_hash: u64, row: usize) -> usize {
+        const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
         let mixed = key_hash.wrapping_add((row as u64).wrapping_mul(GOLDEN));
         (mixed as usize) & (W - 1)
     }
@@ -104,6 +104,7 @@ pub struct MarkovOracle {
 
 impl MarkovOracle {
     /// Create new oracle
+    #[must_use]
     pub fn new() -> Self {
         Self {
             transitions: AtomicSketch::new(),
@@ -130,6 +131,7 @@ impl MarkovOracle {
 
     /// Check if we should prefetch a candidate key
     #[inline(always)]
+    #[must_use]
     pub fn should_prefetch(&self, current: u64, candidate: u64) -> bool {
         let h = Self::mix(current, candidate);
         self.transitions.estimate(h) >= PREFETCH_THRESHOLD
@@ -137,6 +139,7 @@ impl MarkovOracle {
 
     /// Get the estimated transition frequency
     #[inline(always)]
+    #[must_use]
     pub fn transition_freq(&self, from: u64, to: u64) -> u8 {
         let h = Self::mix(from, to);
         self.transitions.estimate(h)
@@ -164,8 +167,8 @@ impl Default for MarkovOracle {
 
 /// Thread-safe Lock-Free Oracle
 ///
-/// Uses AtomicU64 for last_key tracking and lock-free sketch.
-/// Some races on last_key are acceptable for probabilistic prediction.
+/// Uses `AtomicU64` for `last_key` tracking and lock-free sketch.
+/// Some races on `last_key` are acceptable for probabilistic prediction.
 pub struct SharedOracle {
     /// Lock-free transition sketch
     transitions: AtomicSketch<1024, 2>,
@@ -176,6 +179,7 @@ pub struct SharedOracle {
 }
 
 impl SharedOracle {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             transitions: AtomicSketch::new(),
