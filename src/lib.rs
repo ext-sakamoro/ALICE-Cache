@@ -65,10 +65,13 @@
 extern crate alloc;
 
 pub mod cache;
+pub mod compression;
+pub mod crdt;
 pub mod jump_hash;
 pub mod oracle;
 pub mod shard;
 pub mod sketch;
+pub mod tiered;
 
 #[cfg(feature = "analytics")]
 pub mod analytics_bridge;
@@ -79,10 +82,13 @@ pub mod python;
 
 // Re-exports
 pub use cache::{AliceCache, CacheConfig, CacheStats, StandardCache};
+pub use compression::{compress, decompress, CompressedEntry, CompressionConfig, CompressionStats};
+pub use crdt::{CrdtClock, InvalidationEntry, InvalidationLog};
 pub use jump_hash::{jump_hash, jump_hash_bytes, jump_hash_u128};
 pub use oracle::{MarkovOracle, SharedOracle};
 pub use shard::CacheShard;
 pub use sketch::{CountMinSketch, Sketch16K, Sketch1K, Sketch4K};
+pub use tiered::{TieredCache, TieredConfig};
 
 /// Version
 pub const VERSION: &str = "0.2.0-charred";
