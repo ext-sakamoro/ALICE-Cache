@@ -85,7 +85,7 @@ impl<const W: usize, const D: usize> AtomicSketch<W, D> {
 
     /// Hash to index (assumes W is power of 2)
     #[inline(always)]
-    fn index(key_hash: u64, row: usize) -> usize {
+    const fn index(key_hash: u64, row: usize) -> usize {
         const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
         let mixed = key_hash.wrapping_add((row as u64).wrapping_mul(GOLDEN));
         (mixed as usize) & (W - 1)
@@ -154,7 +154,7 @@ impl MarkovOracle {
 
     /// Mix two hashes for transition key
     #[inline(always)]
-    fn mix(a: u64, b: u64) -> u64 {
+    const fn mix(a: u64, b: u64) -> u64 {
         a ^ b.rotate_left(32)
     }
 }
@@ -220,7 +220,7 @@ impl SharedOracle {
     }
 
     #[inline(always)]
-    fn mix(a: u64, b: u64) -> u64 {
+    const fn mix(a: u64, b: u64) -> u64 {
         a ^ b.rotate_left(32)
     }
 }

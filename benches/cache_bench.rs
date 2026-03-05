@@ -1,4 +1,4 @@
-use alice_cache::{jump_hash, AliceCache, CacheConfig, CountMinSketch, Sketch16K, Sketch4K};
+use alice_cache::{jump_hash, AliceCache, Sketch4K};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 fn bench_cache_put(c: &mut Criterion) {
@@ -9,7 +9,7 @@ fn bench_cache_put(c: &mut Criterion) {
         b.iter(|| {
             key = key.wrapping_add(1);
             cache.put(black_box(key), black_box(key * 10));
-        })
+        });
     });
 }
 
@@ -24,7 +24,7 @@ fn bench_cache_get_hit(c: &mut Criterion) {
         b.iter(|| {
             key = (key + 1) % 10000;
             cache.get(black_box(&key))
-        })
+        });
     });
 }
 
@@ -39,7 +39,7 @@ fn bench_cache_get_miss(c: &mut Criterion) {
         b.iter(|| {
             key = key.wrapping_add(1);
             cache.get(black_box(&key))
-        })
+        });
     });
 }
 
@@ -55,7 +55,7 @@ fn bench_jump_hash(c: &mut Criterion) {
                 b.iter(|| {
                     key = key.wrapping_add(1);
                     jump_hash(black_box(key), n)
-                })
+                });
             },
         );
     }
@@ -70,7 +70,7 @@ fn bench_count_min_sketch(c: &mut Criterion) {
         b.iter(|| {
             key = key.wrapping_add(1);
             sketch.add(black_box(key));
-        })
+        });
     });
 
     c.bench_function("cms_estimate", |b| {
@@ -78,7 +78,7 @@ fn bench_count_min_sketch(c: &mut Criterion) {
         b.iter(|| {
             key = key.wrapping_add(1);
             sketch.estimate(black_box(key))
-        })
+        });
     });
 }
 
@@ -89,12 +89,12 @@ fn bench_cache_mixed_workload(c: &mut Criterion) {
         let mut i = 0u64;
         b.iter(|| {
             i = i.wrapping_add(1);
-            if i % 5 == 0 {
+            if i.is_multiple_of(5) {
                 cache.put(black_box(i), black_box(i));
             } else {
                 cache.get(black_box(&(i % 10000)));
             }
-        })
+        });
     });
 }
 

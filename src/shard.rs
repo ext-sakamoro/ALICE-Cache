@@ -68,8 +68,7 @@ where
     /// Get value by key (updates frequency)
     #[inline(always)]
     pub fn get(&self, key: &K, hash: u64) -> Option<V> {
-        let mut guard = self.inner.lock();
-        let inner = &mut *guard;
+        let inner = &mut *self.inner.lock();
 
         // Update frequency
         inner.sketch.add(hash);
@@ -77,18 +76,16 @@ where
         Self::maybe_age_sketch(inner);
 
         // O(1) lookup -> O(1) index access
-        if let Some(&idx) = inner.lookup.get(key) {
-            Some(inner.entries[idx as usize].value.clone())
-        } else {
-            None
-        }
+        inner
+            .lookup
+            .get(key)
+            .map(|&idx| inner.entries[idx as usize].value.clone())
     }
 
     /// Insert key-value pair (may trigger eviction)
     #[inline(always)]
     pub fn put(&self, key: K, value: V, hash: u64) {
-        let mut guard = self.inner.lock();
-        let inner = &mut *guard;
+        let inner = &mut *self.inner.lock();
 
         inner.sketch.add(hash);
         inner.sample_count += 1;
@@ -113,14 +110,12 @@ where
     /// Remove key from shard
     #[inline(always)]
     pub fn remove(&self, key: &K) -> Option<V> {
-        let mut guard = self.inner.lock();
-        let inner = &mut *guard;
+        let inner = &mut *self.inner.lock();
 
-        if let Some(idx) = inner.lookup.remove(key) {
-            Some(Self::swap_remove(inner, idx as usize))
-        } else {
-            None
-        }
+        inner
+            .lookup
+            .remove(key)
+            .map(|idx| Self::swap_remove(inner, idx as usize))
     }
 
     /// Check if key exists
@@ -219,7 +214,7 @@ where
 
 /// Xorshift64 PRNG - fast, good enough for sampling
 #[inline(always)]
-fn xorshift64(mut x: u64) -> u64 {
+const fn xorshift64(mut x: u64) -> u64 {
     x ^= x << 13;
     x ^= x >> 7;
     x ^= x << 17;

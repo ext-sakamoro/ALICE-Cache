@@ -1,6 +1,6 @@
 //! Basic Cache Operations Example
 //!
-//! Demonstrates put/get with TinyLFU eviction.
+//! Demonstrates put/get with `TinyLFU` eviction.
 //!
 //! ```bash
 //! cargo run --example basic_cache
@@ -16,7 +16,7 @@ fn main() {
 
     // Insert items
     for i in 0..100u64 {
-        cache.put(i, format!("value_{}", i));
+        cache.put(i, format!("value_{i}"));
     }
     println!("Inserted 100 items");
 
@@ -27,7 +27,7 @@ fn main() {
             hits += 1;
         }
     }
-    println!("Read 100 items: {} hits", hits);
+    println!("Read 100 items: {hits} hits");
 
     // Simulate hot/cold access pattern
     println!("\n--- Hot/Cold Access Pattern ---\n");
@@ -60,7 +60,7 @@ fn main() {
         }
     }
 
-    println!("Hot keys (0-19):    {}/20 hits", hot_hits);
-    println!("Cold keys (180-199): {}/20 hits", cold_hits);
+    println!("Hot keys (0-19):    {hot_hits}/20 hits");
+    println!("Cold keys (180-199): {cold_hits}/20 hits");
     println!("TinyLFU keeps frequently accessed items in cache");
 }

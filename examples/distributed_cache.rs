@@ -19,7 +19,10 @@ fn main() {
 
     for key in 0..10000u64 {
         let node = jump_hash(key, num_nodes);
-        distribution[node as usize] += 1;
+        #[allow(clippy::cast_sign_loss)]
+        {
+            distribution[node as usize] += 1;
+        }
     }
 
     for (i, count) in distribution.iter().enumerate() {
@@ -27,7 +30,7 @@ fn main() {
             "  Node {}: {} keys ({:.1}%)",
             i,
             count,
-            *count as f64 / 100.0
+            f64::from(*count) / 100.0
         );
     }
 
@@ -81,5 +84,5 @@ fn main() {
         }
     }
 
-    println!("  Node 0 stored {} keys (out of 100 total)", stored);
+    println!("  Node 0 stored {stored} keys (out of 100 total)");
 }

@@ -84,13 +84,13 @@ impl<const W: usize, const D: usize> CountMinSketch<W, D> {
     /// Total number of items added
     #[inline(always)]
     #[must_use]
-    pub fn total(&self) -> u64 {
+    pub const fn total(&self) -> u64 {
         self.total
     }
 
     /// Calculate index for a given hash and row
     #[inline(always)]
-    fn index(key_hash: u64, row: usize) -> usize {
+    const fn index(key_hash: u64, row: usize) -> usize {
         // Different hash for each row using golden ratio mixing
         const GOLDEN: u64 = 0x9E37_79B9_7F4A_7C15;
         let mixed = key_hash.wrapping_add((row as u64).wrapping_mul(GOLDEN));
