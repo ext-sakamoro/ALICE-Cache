@@ -195,6 +195,11 @@ fn put(&self, key: K, value: V);
 fn remove(&self, key: &K) -> Option<V>;
 fn contains(&self, key: &K) -> bool;
 
+// Batch Operations (LLM KV-cache向け)
+fn batch_put(&self, keys: &[K], values: &[V]);
+fn batch_get(&self, keys: &[K]) -> BatchGetResult<V>;
+fn batch_remove(&self, keys: &[K]) -> Vec<Option<V>>;
+
 // Prediction
 fn should_prefetch(&self, current: &K, candidate: &K) -> bool;
 
@@ -207,6 +212,36 @@ fn len(&self) -> usize;
 fn capacity(&self) -> usize;
 fn hit_rate(&self) -> f64;
 fn stats(&self) -> &CacheStats;
+```
+
+### `TieredCache<K, V>`
+
+Hot/Warm 2層キャッシュ。直近のデータはHot層（高速）、古いデータはWarm層へ自動スピル。
+
+```rust
+use alice_cache::{TieredCache, TieredConfig};
+
+let cache = TieredCache::<u32, Vec<f32>>::new(TieredConfig {
+    hot_capacity: 1000,   // L2キャッシュ相当
+    warm_capacity: 10000, // メインメモリ相当
+    ..Default::default()
+});
+
+cache.put(1, vec![0.1, 0.2, 0.3]);
+assert_eq!(cache.get(&1), Some(vec![0.1, 0.2, 0.3]));
+```
+
+### Compression
+
+RLE + LZ77圧縮でキャッシュエントリを圧縮格納。LLM KVキャッシュの帯域削減に有効。
+
+```rust
+use alice_cache::{compress, decompress, CompressionConfig};
+
+let data = b"aaabbbccc";
+let compressed = compress(data, &CompressionConfig::default());
+let restored = decompress(&compressed);
+assert_eq!(&restored, data);
 ```
 
 ### `CountMinSketch<W, D>`
@@ -310,7 +345,7 @@ Enable: `alice-cache = { features = ["analytics"] }`
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 86 passed + 1 doc-test |
+| **Tests** | 150 |
 | **clippy pedantic** | 0 warnings |
 | **cargo fmt** | clean |
 | **`#[must_use]`** | all pub value-returning functions |
