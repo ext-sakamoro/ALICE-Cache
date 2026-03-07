@@ -54,15 +54,12 @@ where
         let mut misses = 0_usize;
 
         for k in keys {
-            match self.get(k) {
-                Some(v) => {
-                    values.push(Some(v));
-                    hits += 1;
-                }
-                None => {
-                    values.push(None);
-                    misses += 1;
-                }
+            if let Some(v) = self.get(k) {
+                values.push(Some(v));
+                hits += 1;
+            } else {
+                values.push(None);
+                misses += 1;
             }
         }
 
