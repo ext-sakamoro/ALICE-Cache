@@ -15,6 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Create dependency stubs
+        run: |
+          for crate_info in \
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Analytics:alice-analytics"; do
+            dir=$(echo "$crate_info" | cut -d: -f1)
+            pkg=$(echo "$crate_info" | cut -d: -f2)
+            mkdir -p "../$dir/src"
+            cat > "../$dir/Cargo.toml" << TOML
+          [package]
+          name = "$pkg"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          TOML
+            echo "" > "../$dir/src/lib.rs"
+          done
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --lib --tests
       - run: cargo test --doc
@@ -23,6 +42,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Create dependency stubs
+        run: |
+          for crate_info in \
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Analytics:alice-analytics"; do
+            dir=$(echo "$crate_info" | cut -d: -f1)
+            pkg=$(echo "$crate_info" | cut -d: -f2)
+            mkdir -p "../$dir/src"
+            cat > "../$dir/Cargo.toml" << TOML
+          [package]
+          name = "$pkg"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          TOML
+            echo "" > "../$dir/src/lib.rs"
+          done
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --examples
 
@@ -30,6 +68,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Create dependency stubs
+        run: |
+          for crate_info in \
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Analytics:alice-analytics"; do
+            dir=$(echo "$crate_info" | cut -d: -f1)
+            pkg=$(echo "$crate_info" | cut -d: -f2)
+            mkdir -p "../$dir/src"
+            cat > "../$dir/Cargo.toml" << TOML
+          [package]
+          name = "$pkg"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          TOML
+            echo "" > "../$dir/src/lib.rs"
+          done
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -48,5 +105,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Create dependency stubs
+        run: |
+          for crate_info in \
+            "ALICE-Crypto:alice-crypto" \
+            "ALICE-Analytics:alice-analytics"; do
+            dir=$(echo "$crate_info" | cut -d: -f1)
+            pkg=$(echo "$crate_info" | cut -d: -f2)
+            mkdir -p "../$dir/src"
+            cat > "../$dir/Cargo.toml" << TOML
+          [package]
+          name = "$pkg"
+          version = "0.1.0"
+          edition = "2021"
+          [features]
+          default = []
+          std = []
+          TOML
+            echo "" > "../$dir/src/lib.rs"
+          done
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo doc --no-deps
