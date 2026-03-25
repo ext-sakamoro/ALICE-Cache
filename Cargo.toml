@@ -2,7 +2,7 @@
 name = "alice-cache"
 version = "0.2.0"
 edition = "2021"
-authors = ["Moroya Sakamoto"]
+authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
 description = "Predictive Distributed Caching System - Inferno Edition"
 license = "AGPL-3.0"
 repository = "https://github.com/ext-sakamoro/ALICE-Cache"
