@@ -101,7 +101,17 @@ mod tests {
 
     #[test]
     fn test_integration() {
-        let cache = AliceCache::<&str, i32>::new(100);
+        // `AliceCache::new(100)` は default `num_shards = 256` を使うため
+        // `shard_cap = 100.div_ceil(256) = 1` になり、3 items が同 shard に
+        // hash 衝突すると eviction で `get` が None を返す non-deterministic
+        // failure (Mac / Jetson で 2-3% 再現) を起こす
+        // ahash::RandomState はプロセス毎 seed random で衝突確率は非ゼロ
+        // 明示的 `num_shards = 4` (shard_cap = 25) で collision を回避
+        let cache = AliceCache::<&str, i32>::with_config(CacheConfig {
+            capacity: 100,
+            num_shards: 4,
+            ..Default::default()
+        });
 
         cache.put("a", 1);
         cache.put("b", 2);
