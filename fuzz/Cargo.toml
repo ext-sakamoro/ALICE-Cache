@@ -1,0 +1,39 @@
+[package]
+name = "alice-cache-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.alice-cache]
+path = ".."
+default-features = false
+features = ["std"]
+
+# cargo-machete false-positive 予防 (canonical [[reference_alice_ci_canonical_template]] 罠 #3)
+[package.metadata.cargo-machete]
+ignored = ["libfuzzer-sys"]
+
+[[bin]]
+name = "fuzz_get_put_roundtrip"
+path = "fuzz_targets/fuzz_get_put_roundtrip.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_jump_hash"
+path = "fuzz_targets/fuzz_jump_hash.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_compression_roundtrip"
+path = "fuzz_targets/fuzz_compression_roundtrip.rs"
+doc = false
+
+[workspace]
+members = ["."]
