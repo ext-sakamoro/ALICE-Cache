@@ -74,8 +74,11 @@ pub mod shard;
 pub mod sketch;
 pub mod tiered;
 
-#[cfg(feature = "analytics")]
-pub mod analytics_bridge;
+// analytics feature is temporarily disabled in 0.2.0 due to alice-analytics
+// API drift (HyperLogLog / DDSketch / CountMinSketch renamed or not exported)
+// Scheduled restoration in 0.3.0 after upstream alignment
+// #[cfg(feature = "analytics")]
+// pub mod analytics_bridge;
 #[cfg(feature = "crypto")]
 pub mod crypto_bridge;
 #[cfg(feature = "pyo3")]

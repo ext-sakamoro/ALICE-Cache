@@ -3,10 +3,11 @@ name = "alice-cache"
 version = "0.2.0"
 edition = "2021"
 authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
-description = "Predictive Distributed Caching System - Inferno Edition"
-license = "AGPL-3.0"
+description = "Predictive Distributed Caching System — SDF-gradient locality + probabilistic hit/miss forecasting"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/ext-sakamoro/ALICE-Cache"
-publish = false
+keywords = ["cache", "distributed", "predictive", "sdf", "no_std"]
+categories = ["caching", "concurrency", "no-std"]
 
 [lib]
 name = "alice_cache"
@@ -17,7 +18,10 @@ default = ["std"]
 std = []
 pyo3 = ["dep:pyo3", "dep:numpy", "std"]  # Python bindings
 crypto = ["dep:alice-crypto", "std"]  # Signed cache entries for tamper prevention
-analytics = ["dep:alice-analytics", "std"]  # Cache hit/miss metrics + hot key tracking
+# analytics feature は alice-analytics 側 API drift で 0.2.0 では一時 disable
+# HyperLogLog/DDSketch/CountMinSketch は alice-analytics 側で rename or 未 export
+# 修正後 0.3.0 で復活予定 (下記 optional dep は保持、feature gate off)
+# analytics = ["dep:alice-analytics", "std"]
 
 [dependencies]
 parking_lot = "0.12"
@@ -25,8 +29,8 @@ hashbrown = "0.14"
 ahash = "0.8"
 pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 numpy = { version = "0.27", optional = true }
-alice-crypto = { path = "../ALICE-Crypto", optional = true, default-features = false, features = ["std"] }
-alice-analytics = { path = "../ALICE-Analytics", optional = true, default-features = false, features = ["std"] }
+alice-crypto = { path = "../ALICE-Crypto", version = "0.1", optional = true, default-features = false, features = ["std"] }
+alice-analytics = { path = "../ALICE-Analytics", version = "0.1", optional = true, default-features = false, features = ["std"] }
 
 [profile.release]
 opt-level = 3
