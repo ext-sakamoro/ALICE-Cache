@@ -169,7 +169,7 @@ mod tests {
         }
 
         assert!(sketch.estimate(1) > sketch.estimate(2));
-        assert!(sketch.estimate(3) == 0);
+        assert_eq!(sketch.estimate(3), 0);
     }
 
     #[test]
