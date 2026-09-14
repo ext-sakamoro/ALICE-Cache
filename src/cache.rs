@@ -19,6 +19,31 @@ extern crate alloc;
 
 /// Default number of shards (must be power of 2)
 const DEFAULT_SHARDS: usize = 256;
+/// `AliceCache::new(capacity)` が shard 数を選ぶときの 1 shard あたり最小容量
+///
+/// shard 数を capacity に無関係に 256 固定にすると、小容量 cache で 1 shard あたり
+/// 容量 1 になり、ハッシュが同じ shard に落ちた 2 key 目が即 evict される
+/// (= 実効容量が capacity を大きく下回る、2026-09-14 `new(100)` で 5 件中 1 件消失を CI で実測)
+const MIN_CAPACITY_PER_SHARD: usize = 32;
+
+/// capacity から shard 数を決める: 1 shard あたり `MIN_CAPACITY_PER_SHARD` 以上、
+/// 2 の冪、`1..=DEFAULT_SHARDS`
+#[must_use]
+pub const fn shards_for_capacity(capacity: usize) -> usize {
+    let wanted = capacity / MIN_CAPACITY_PER_SHARD;
+    if wanted <= 1 {
+        1
+    } else if wanted >= DEFAULT_SHARDS {
+        DEFAULT_SHARDS
+    } else {
+        // 切り下げ (per-shard 容量が MIN を下回らないよう、2 の冪の floor)
+        let mut n = 1;
+        while n * 2 <= wanted {
+            n *= 2;
+        }
+        n
+    }
+}
 
 /// Cache statistics (lock-free)
 ///
@@ -157,10 +182,15 @@ where
     V: Clone + Send + Sync,
 {
     /// Create new cache with given capacity
+    ///
+    /// shard 数は [`shards_for_capacity`] で容量に合わせて選ぶ (小容量で shard が
+    /// 容量を細切れにして実効容量が落ちないように) 明示したい場合は
+    /// [`AliceCache::with_config`] で `num_shards` を指定する
     #[must_use]
     pub fn new(capacity: usize) -> Self {
         Self::with_config(CacheConfig {
             capacity,
+            num_shards: shards_for_capacity(capacity),
             ..Default::default()
         })
     }
@@ -357,6 +387,46 @@ pub type StandardCache<K, V> = AliceCache<K, V>;
 #[allow(clippy::doc_markdown)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shards_for_capacity_keeps_per_shard_capacity_sane() {
+        assert_eq!(shards_for_capacity(0), 1);
+        assert_eq!(shards_for_capacity(5), 1);
+        assert_eq!(shards_for_capacity(100), 2); // 100/32 = 3 → floor pow2 = 2 → 50 / shard
+        assert_eq!(shards_for_capacity(1_000), 16); // 31 → 16 → 63 / shard
+        assert_eq!(shards_for_capacity(10_000), 256);
+        assert_eq!(shards_for_capacity(1 << 30), DEFAULT_SHARDS);
+        for cap in [1, 7, 33, 100, 1_000, 4_096, 50_000] {
+            let n = shards_for_capacity(cap);
+            assert!(
+                n.is_power_of_two() && n <= DEFAULT_SHARDS,
+                "cap {cap} → {n}"
+            );
+            assert!(
+                n == 1 || cap / n >= MIN_CAPACITY_PER_SHARD,
+                "cap {cap} → {n} shards ({} per shard)",
+                cap / n
+            );
+        }
+    }
+
+    #[test]
+    fn small_cache_never_loses_entries_below_capacity() {
+        // 100 容量に 50 件、100 回 (ahash の seed が毎回変わる) — shard 衝突で消えてはいけない
+        for _ in 0..100 {
+            let cache = AliceCache::<u32, u32>::new(100);
+            for k in 0..50u32 {
+                cache.put(k, k * 10);
+            }
+            for k in 0..50u32 {
+                assert_eq!(
+                    cache.get(&k),
+                    Some(k * 10),
+                    "key {k} evicted below capacity"
+                );
+            }
+        }
+    }
 
     #[test]
     fn test_cache_basic() {
