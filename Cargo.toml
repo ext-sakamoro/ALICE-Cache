@@ -15,7 +15,9 @@ crate-type = ["rlib", "cdylib"]
 
 [features]
 default = ["std"]
-std = []
+# std: parking_lot Mutex (OS futex) + ahash runtime RNG no_std は spin::Mutex + compile-time RNG
+# (2026-09-15 まで parking_lot が非 optional で bare-metal では std 要求 = no_std claim が dep レベルで偽だった)
+std = ["dep:parking_lot", "ahash/std", "ahash/runtime-rng"]
 pyo3 = ["dep:pyo3", "dep:numpy", "std"]  # Python bindings
 crypto = ["dep:alice-crypto", "std"]  # Signed cache entries for tamper prevention
 # analytics feature は alice-analytics 側 API drift で 0.2.0 では一時 disable
@@ -24,9 +26,11 @@ crypto = ["dep:alice-crypto", "std"]  # Signed cache entries for tamper preventi
 # analytics = ["dep:alice-analytics", "std"]
 
 [dependencies]
-parking_lot = "0.12"
+parking_lot = { version = "0.12", optional = true }
+# no_std 用 Mutex (std 時は parking_lot、shard.rs で cfg 切替)
+spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
 hashbrown = "0.14"
-ahash = "0.8"
+ahash = { version = "0.8", default-features = false, features = ["compile-time-rng"] }
 pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 numpy = { version = "0.27", optional = true }
 alice-crypto = { path = "../ALICE-Crypto", version = "0.1", optional = true, default-features = false, features = ["std"] }

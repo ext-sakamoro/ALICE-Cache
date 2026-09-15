@@ -10,7 +10,10 @@
 use alloc::vec::Vec;
 use core::hash::Hash;
 use hashbrown::HashMap;
+#[cfg(feature = "std")]
 use parking_lot::Mutex;
+#[cfg(not(feature = "std"))]
+use spin::Mutex;
 
 use crate::sketch::CountMinSketch;
 

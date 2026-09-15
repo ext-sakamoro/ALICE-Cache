@@ -1,5 +1,15 @@
 name: CI
 
+# canonical CI template: [[reference_alice_ci_canonical_template]] 手順 4.5 / 4.6
+# 2026-09-15 強化 (罠 #25-27 / #29 遡及):
+# - clippy を `--all-targets` (benches / examples 含む) で pedantic `-D warnings`
+# - no_std job: それまで host の `--no-default-features` だけで、非 optional の parking_lot / ahash runtime RNG が
+#   host std を暗黙 link して見かけ green だった (crates.io の no-std category が dep レベルで偽) →
+#   `crate-type` に cdylib を含むため `cargo rustc --crate-type rlib`、bare-metal aarch64-unknown-none
+#   (AtomicU64 が必要なので 64-bit target、rust-toolchain.toml の `targets` で pinned toolchain 側に install)
+# - feature-powerset: std 固定 depth 2 (pyo3 = Python toolchain / crypto = sibling 実体、除外)
+# - sibling path dep (alice-crypto / alice-analytics) の stub は alice-stubs composite action に統一
+
 on:
   push:
     branches: [main]
@@ -12,85 +22,66 @@ env:
 
 jobs:
   test:
+    name: Test (lib + tests + doc + examples)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create dependency stubs
-        run: |
-          for crate_info in \
-            "ALICE-Crypto:alice-crypto" \
-            "ALICE-Analytics:alice-analytics"; do
-            dir=$(echo "$crate_info" | cut -d: -f1)
-            pkg=$(echo "$crate_info" | cut -d: -f2)
-            mkdir -p "../$dir/src"
-            cat > "../$dir/Cargo.toml" << TOML
-          [package]
-          name = "$pkg"
-          version = "0.1.0"
-          edition = "2021"
-          [features]
-          default = []
-          std = []
-          TOML
-            echo "" > "../$dir/src/lib.rs"
-          done
+      - name: Create ALICE optional bridge stubs
+        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo test --lib --tests
       - run: cargo test --doc
-
-  test-examples:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Create dependency stubs
-        run: |
-          for crate_info in \
-            "ALICE-Crypto:alice-crypto" \
-            "ALICE-Analytics:alice-analytics"; do
-            dir=$(echo "$crate_info" | cut -d: -f1)
-            pkg=$(echo "$crate_info" | cut -d: -f2)
-            mkdir -p "../$dir/src"
-            cat > "../$dir/Cargo.toml" << TOML
-          [package]
-          name = "$pkg"
-          version = "0.1.0"
-          edition = "2021"
-          [features]
-          default = []
-          std = []
-          TOML
-            echo "" > "../$dir/src/lib.rs"
-          done
-      - uses: dtolnay/rust-toolchain@stable
       - run: cargo build --examples
 
   clippy:
+    name: Clippy (all targets, pedantic, -D warnings)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create dependency stubs
-        run: |
-          for crate_info in \
-            "ALICE-Crypto:alice-crypto" \
-            "ALICE-Analytics:alice-analytics"; do
-            dir=$(echo "$crate_info" | cut -d: -f1)
-            pkg=$(echo "$crate_info" | cut -d: -f2)
-            mkdir -p "../$dir/src"
-            cat > "../$dir/Cargo.toml" << TOML
-          [package]
-          name = "$pkg"
-          version = "0.1.0"
-          edition = "2021"
-          [features]
-          default = []
-          std = []
-          TOML
-            echo "" > "../$dir/src/lib.rs"
-          done
+      - name: Create ALICE optional bridge stubs
+        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo clippy --lib --tests -- -W clippy::all -W clippy::pedantic
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets -- -W clippy::all -W clippy::pedantic -D warnings
+
+  no_std:
+    name: no_std (rlib、host + bare-metal aarch64-unknown-none)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create ALICE optional bridge stubs
+        uses: ./.github/actions/alice-stubs
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Build (no_std, host)
+        run: cargo rustc --lib --no-default-features --crate-type rlib
+      - name: Build (no_std, bare-metal aarch64-unknown-none)
+        run: cargo rustc --lib --no-default-features --crate-type rlib --target aarch64-unknown-none
+      # cargo clippy は crate-type を上書きできないので clippy-driver を wrapper で差す
+      - name: Clippy (no_std, bare-metal, pedantic)
+        run: >-
+          RUSTC_WORKSPACE_WRAPPER="$(rustup which clippy-driver)"
+          cargo rustc --lib --no-default-features --crate-type rlib --target aarch64-unknown-none --
+          -W clippy::all -W clippy::pedantic -D warnings
+
+  feature-powerset:
+    name: Feature powerset (cargo-hack, std 固定, depth 2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Create ALICE optional bridge stubs
+        uses: ./.github/actions/alice-stubs
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+      # std 固定: std なしの組合せは cdylib link 要求で落ちるため no_std job 側で rlib として検証
+      - run: cargo hack check --lib --feature-powerset --depth 2 --exclude-features pyo3,crypto --features std
 
   fmt:
     runs-on: ubuntu-latest
@@ -105,26 +96,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create dependency stubs
-        run: |
-          for crate_info in \
-            "ALICE-Crypto:alice-crypto" \
-            "ALICE-Analytics:alice-analytics"; do
-            dir=$(echo "$crate_info" | cut -d: -f1)
-            pkg=$(echo "$crate_info" | cut -d: -f2)
-            mkdir -p "../$dir/src"
-            cat > "../$dir/Cargo.toml" << TOML
-          [package]
-          name = "$pkg"
-          version = "0.1.0"
-          edition = "2021"
-          [features]
-          default = []
-          std = []
-          TOML
-            echo "" > "../$dir/src/lib.rs"
-          done
+      - name: Create ALICE optional bridge stubs
+        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo doc --no-deps
         env:
           RUSTDOCFLAGS: "-Dwarnings"
