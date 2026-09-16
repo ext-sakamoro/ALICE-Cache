@@ -8,7 +8,7 @@ name: CI
 #   `crate-type` に cdylib を含むため `cargo rustc --crate-type rlib`、bare-metal aarch64-unknown-none
 #   (AtomicU64 が必要なので 64-bit target、rust-toolchain.toml の `targets` で pinned toolchain 側に install)
 # - feature-powerset: std 固定 depth 2 (pyo3 = Python toolchain / crypto = sibling 実体、除外)
-# - sibling path dep (alice-crypto / alice-analytics) の stub は alice-stubs composite action に統一
+# - alice-crypto / alice-analytics は crates.io dep (2026-09-16、stub action 撤去)
 
 on:
   push:
@@ -26,8 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create ALICE optional bridge stubs
-        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --lib --tests
@@ -39,8 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create ALICE optional bridge stubs
-        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -52,8 +48,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create ALICE optional bridge stubs
-        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -74,8 +68,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create ALICE optional bridge stubs
-        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Install cargo-hack
@@ -96,8 +88,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Create ALICE optional bridge stubs
-        uses: ./.github/actions/alice-stubs
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --no-deps

@@ -4,6 +4,13 @@ All notable changes to ALICE-Cache will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- The optional `alice-crypto` / `alice-analytics` bridges are plain crates.io
+  dependencies (`path = "../ALICE-*"` removed); CI no longer builds
+  manifest-only sibling stubs, so `cargo audit` / `cargo deny` see the real
+  dependency tree.
+
 ### Fixed
 - **`no_std` が bare-metal で偽だった** — 非 optional の `parking_lot` (std 必須) と `ahash::RandomState::new()` (runtime RNG) により `aarch64-unknown-none` では `can't find crate for std` (host の `--no-default-features` は host std を暗黙 link して見かけ green) `parking_lot` を `std` feature 限定 optional に、`no_std` は `spin::Mutex` (`shard.rs` で cfg 切替) + `ahash` `compile-time-rng` `AtomicU64` 統計 counter のため 64-bit atomics を持つ target が前提 (32-bit MCU は対象外、lib doc に明記)
 
