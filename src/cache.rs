@@ -9,7 +9,7 @@
 
 use alloc::vec::Vec;
 use core::hash::Hash;
-use core::sync::atomic::{AtomicU64, Ordering};
+use portable_atomic::{AtomicU64, Ordering};
 
 use crate::jump_hash::jump_hash;
 use crate::oracle::SharedOracle;

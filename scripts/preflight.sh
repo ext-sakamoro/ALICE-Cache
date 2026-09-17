@@ -21,6 +21,7 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "missing tool: $1 ($2)" >&2; 
 has_toolchain() { rustup toolchain list | grep -q "^$1"; }
 
 # Steps CI runs that this file cannot reproduce locally (they can only fail remotely):
+#   - ci.yml:no_std:Add thumbv7em-none-eabihf (no cargo / grep)
 #   - security-audit.yml:audit:Install cargo-audit (needs network / runner-only)
 #   - security-audit.yml:deny:Install cargo-deny (needs network / runner-only)
 #   - security-audit.yml:coverage (job is continue-on-error: informational in CI)
@@ -50,6 +51,10 @@ step "ci.yml / no_std: Build (no_std, host)"
 step "ci.yml / no_std: Build (no_std, bare-metal aarch64-unknown-none)"
 rustup target list --installed | grep -q '^aarch64-unknown-none$' || rustup target add aarch64-unknown-none
 ( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo rustc --lib --no-default-features --crate-type rlib --target aarch64-unknown-none )
+
+step "ci.yml / no_std: Build (no_std, bare-metal thumbv7em-none-eabihf、64-bit atomic なし)"
+rustup target list --installed | grep -q '^thumbv7em-none-eabihf$' || rustup target add thumbv7em-none-eabihf
+( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo rustc --lib --no-default-features --crate-type rlib --target thumbv7em-none-eabihf )
 
 step "ci.yml / no_std: Clippy (no_std, bare-metal, pedantic)"
 relint

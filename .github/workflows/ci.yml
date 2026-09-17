@@ -44,7 +44,7 @@ jobs:
       - run: cargo clippy --all-targets -- -W clippy::all -W clippy::pedantic -D warnings
 
   no_std:
-    name: no_std (rlib、host + bare-metal aarch64-unknown-none)
+    name: no_std (rlib、host + bare-metal aarch64-unknown-none / thumbv7em-none-eabihf)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -56,6 +56,11 @@ jobs:
         run: cargo rustc --lib --no-default-features --crate-type rlib
       - name: Build (no_std, bare-metal aarch64-unknown-none)
         run: cargo rustc --lib --no-default-features --crate-type rlib --target aarch64-unknown-none
+      # Cortex-M4 (32-bit atomic まで): AtomicU64 は portable-atomic の fallback (2026-09-17)
+      - name: Add thumbv7em-none-eabihf
+        run: rustup target add thumbv7em-none-eabihf
+      - name: Build (no_std, bare-metal thumbv7em-none-eabihf、64-bit atomic なし)
+        run: cargo rustc --lib --no-default-features --crate-type rlib --target thumbv7em-none-eabihf
       # cargo clippy は crate-type を上書きできないので clippy-driver を wrapper で差す
       - name: Clippy (no_std, bare-metal, pedantic)
         run: >-

@@ -4,6 +4,9 @@ All notable changes to ALICE-Cache will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- `no_std` が 64-bit atomic の無い target (Cortex-M4 `thumbv7em-none-eabihf`) で `core::sync::atomic::AtomicU64` 不能だった → 統計 counter / oracle の `AtomicU64` を `portable-atomic` (fallback feature) に置換、CI の no_std job に thumbv7em build を追加 (strict-eval 検査 1、2026-09-17)
+
 ### Changed
 
 - The optional `alice-crypto` / `alice-analytics` bridges are plain crates.io

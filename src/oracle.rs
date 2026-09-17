@@ -7,7 +7,7 @@
 
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use core::sync::atomic::{AtomicU64, AtomicU8, Ordering};
+use portable_atomic::{AtomicU64, AtomicU8, Ordering};
 
 extern crate alloc;
 

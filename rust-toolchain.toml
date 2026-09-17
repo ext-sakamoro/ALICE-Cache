@@ -2,6 +2,7 @@
 [toolchain]
 channel = "1.98.1"
 components = ["rustfmt", "clippy"]
-# no_std 検証用 bare-metal target (64-bit atomics 必須なので aarch64、pinned toolchain 側に install)
-targets = ["aarch64-unknown-none"]
+# no_std 検証用 bare-metal target (pinned toolchain 側に install) thumbv7em は 32-bit atomic まで
+# = AtomicU64 が portable-atomic fallback になる経路の検証 (2026-09-17)
+targets = ["aarch64-unknown-none", "thumbv7em-none-eabihf"]
 profile = "minimal"

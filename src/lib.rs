@@ -21,8 +21,9 @@
 //!
 //! - **256 Shards**: Eliminates lock contention with `parking_lot` Mutex
 //!   (`std`) / `spin::Mutex` (`no_std`)
-//! - **`no_std`**: `--no-default-features` で `alloc` + 64-bit atomics (`AtomicU64`
-//!   統計 counter) を持つ target (`aarch64-unknown-none` 等、32-bit MCU は対象外)
+//! - **`no_std`**: `--no-default-features` で `alloc` のある target 統計 counter の
+//!   `AtomicU64` は `portable-atomic` 経由なので 64-bit atomic の無い 32-bit MCU
+//!   (Cortex-M4 `thumbv7em-none-eabihf`) でも seqlock fallback で動く (CI で両 target を build)
 //! - **Slab Allocation**: Dense `Vec<Entry>` for true O(1) random sampling
 //! - **Sampled Eviction**: Redis-style random sampling, no iteration
 //! - **Lock-Free Oracle**: `AtomicU8` sketch, zero mutex contention

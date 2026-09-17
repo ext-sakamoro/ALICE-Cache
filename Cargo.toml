@@ -26,6 +26,9 @@ crypto = ["dep:alice-crypto", "std"]  # Signed cache entries for tamper preventi
 # analytics = ["dep:alice-analytics", "std"]
 
 [dependencies]
+# no_std で 64-bit atomic の無い target (Cortex-M4 thumbv7em = 32-bit atomic まで) でも
+# AtomicU64 を提供 (native があればそのまま、無ければ seqlock fallback) 2026-09-17
+portable-atomic = { version = "1", default-features = false, features = ["fallback"] }
 parking_lot = { version = "0.12", optional = true }
 # no_std 用 Mutex (std 時は parking_lot、shard.rs で cfg 切替)
 spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
