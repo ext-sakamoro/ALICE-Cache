@@ -31,7 +31,7 @@ crypto = ["dep:alice-crypto", "std"]  # Signed cache entries for tamper preventi
 portable-atomic = { version = "1", default-features = false, features = ["fallback"] }
 parking_lot = { version = "0.12", optional = true }
 # no_std 用 Mutex (std 時は parking_lot、shard.rs で cfg 切替)
-spin = { version = "0.9", default-features = false, features = ["mutex", "spin_mutex"] }
+spin = { version = "0.12", default-features = false, features = ["mutex", "spin_mutex"] }
 hashbrown = "0.14"
 ahash = { version = "0.8", default-features = false, features = ["compile-time-rng"] }
 pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
