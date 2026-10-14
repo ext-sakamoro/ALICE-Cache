@@ -48,6 +48,7 @@ jobs:
   audit:
     name: cargo audit (RustSec CVE scan)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -70,6 +71,7 @@ jobs:
   deny:
     name: cargo-deny (license + advisories + bans + sources)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -87,6 +89,7 @@ jobs:
   unused-deps:
     name: cargo-machete (unused dependencies)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -97,6 +100,7 @@ jobs:
   stub-guard:
     name: Stub / mock / dbg guard (grep)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -163,6 +167,7 @@ jobs:
   package-integrity:
     name: Package integrity (publish される .crate が build できるか)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -200,6 +205,7 @@ jobs:
   coverage:
     name: Coverage (cargo-llvm-cov、informational)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -225,6 +231,7 @@ jobs:
   semver-checks:
     name: cargo-semver-checks (API compat、informational)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # ALICE-Cache は publish = false (crates.io publish 想定なし) だが
     # sibling path dep が crates.io に無く baseline 取得不能なため
     # git baseline (HEAD~1) で比較、informational only
