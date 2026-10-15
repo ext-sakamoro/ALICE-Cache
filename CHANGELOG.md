@@ -10,6 +10,17 @@ All notable changes to ALICE-Cache will be documented in this file.
 - **License: `AGPL-3.0-or-later` → `AGPL-3.0-or-later OR LicenseRef-Commercial` (dual-licensed、2026-09-27)** AGPL 側の条件は変更なし (既存 AGPL 利用者への影響ゼロ)、商用という選択肢が追加されただけ SPDX が AGPL 単独だと cargo-deny / FOSSA / SBOM に「商用オプションなし」と見えるため宣言を dual に 変更点: SPDX / `LICENSE` → `LICENSE-AGPL` / `LICENSE-COMMERCIAL.md` (商用トリガー 6 条件 = クローズド製品・商用 SaaS・エッジ / ファームウェア配布・plugin 再配布・プラットフォーム NDA・保証、社内利用は AGPL 側で無償と明記) / README の選択肢表 商用窓口は法人 `contact@extoria.co.jp`
 
 ### Fixed
+- hash の seed が OS の乱数だった (`ahash::RandomState::new()`) 同じ操作列でも実行ごとに key の shard 配置が変わり、どの key が追い出されずに残るか・hit が返す値が実行ごとに変わっていた 固定 seed の hash (`src/seed.rs`、乱数・時刻を読まず、入力を little-endian の byte 列として畳むので target に依らず同じ値) に置き換え、`AliceCache::new` / `with_config` は既定 seed (`DEFAULT_SEED`) を使う shard 内の lookup 表 (`hashbrown`) も同じ固定 seed にした 既定の構築でも追い出し結果は以前と変わる (実行間で固定になる)
+- 同じ操作列を別 process で走らせて生き残った key 集合と hit の値が一致すること、結果の FNV-1a digest が全 target で定数と一致することを `tests/determinism.rs` で固定した
+
+### Added
+- `AliceCache::with_seed(capacity, seed)` / `AliceCache::with_config_and_seed(config, seed)` seed を明示でき、同じ seed と同じ操作列は常に同じ結果になる
+- `SeededState` / `SeededHasher` / `DEFAULT_SEED` を公開
+
+### Changed
+- `ahash` 依存を外した (`std` feature の `ahash/std` `ahash/runtime-rng` も不要になった) `hashbrown` は既定の hasher を使わない構成 (`default-features = false`) にした
+
+### Fixed
 - `no_std` が 64-bit atomic の無い target (Cortex-M4 `thumbv7em-none-eabihf`) で `core::sync::atomic::AtomicU64` 不能だった → 統計 counter / oracle の `AtomicU64` を `portable-atomic` (fallback feature) に置換、CI の no_std job に thumbv7em build を追加 (strict-eval 検査 1、2026-09-17)
 
 ### Changed

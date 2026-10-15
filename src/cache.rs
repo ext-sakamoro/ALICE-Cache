@@ -8,11 +8,12 @@
 //! Zero allocation on hot paths. Cache locality maximized.
 
 use alloc::vec::Vec;
-use core::hash::Hash;
+use core::hash::{BuildHasher, Hash};
 use portable_atomic::{AtomicU64, Ordering};
 
 use crate::jump_hash::jump_hash;
 use crate::oracle::SharedOracle;
+use crate::seed::{SeededState, DEFAULT_SEED};
 use crate::shard::CacheShard;
 
 extern crate alloc;
@@ -167,7 +168,7 @@ pub struct AliceCache<K, V> {
     /// Shard mask (`num_shards` - 1) for fast modulo
     shard_mask: usize,
     /// Hash builder
-    hash_builder: ahash::RandomState,
+    hash_builder: SeededState,
     /// Statistics (lock-free atomics)
     stats: CacheStats,
     /// Predictive oracle
@@ -202,6 +203,32 @@ where
     /// Panics if `num_shards` is not a power of two.
     #[must_use]
     pub fn with_config(config: CacheConfig) -> Self {
+        Self::with_config_and_seed(config, DEFAULT_SEED)
+    }
+
+    /// Create new cache with an explicit hash seed
+    ///
+    /// 同じ seed と同じ操作列なら、どの実行・どの target でも hit / miss と
+    /// 生き残る key の集合が同じになる ([`AliceCache::new`] は [`DEFAULT_SEED`])
+    #[must_use]
+    pub fn with_seed(capacity: usize, seed: u64) -> Self {
+        Self::with_config_and_seed(
+            CacheConfig {
+                capacity,
+                num_shards: shards_for_capacity(capacity),
+                ..Default::default()
+            },
+            seed,
+        )
+    }
+
+    /// Create new cache with custom configuration and an explicit hash seed
+    ///
+    /// # Panics
+    ///
+    /// Panics if `num_shards` is not a power of two.
+    #[must_use]
+    pub fn with_config_and_seed(config: CacheConfig, seed: u64) -> Self {
         assert!(
             config.num_shards.is_power_of_two(),
             "num_shards must be power of 2"
@@ -223,7 +250,7 @@ where
         Self {
             shards,
             shard_mask: config.num_shards - 1,
-            hash_builder: ahash::RandomState::new(),
+            hash_builder: SeededState::with_seed(seed),
             stats: CacheStats::default(),
             oracle,
             config,
@@ -373,7 +400,7 @@ where
 //   mutable access to the inner `HashMap` + `Vec<Entry>` per shard.
 // - `CacheStats` uses `AtomicU64` (no shared mutable state without atomics).
 // - `SharedOracle` uses only `AtomicU8`/`AtomicU64` (lock-free, no mutex needed).
-// - The `ahash::RandomState` hash builder is read-only after construction.
+// - The `SeededState` hash builder is read-only after construction.
 // All fields are either `Send + Sync` by themselves or guarded by synchronization
 // primitives, so `AliceCache<K, V>` is safe to share across threads provided
 // `K: Send + Sync` and `V: Send + Sync`.
@@ -412,7 +439,7 @@ mod tests {
 
     #[test]
     fn small_cache_never_loses_entries_below_capacity() {
-        // 100 容量に 50 件、100 回 (ahash の seed が毎回変わる) — shard 衝突で消えてはいけない
+        // 100 容量に 50 件、100 回 (seed は固定) — shard 衝突で消えてはいけない
         for _ in 0..100 {
             let cache = AliceCache::<u32, u32>::new(100);
             for k in 0..50u32 {

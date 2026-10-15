@@ -15,6 +15,7 @@ use parking_lot::Mutex;
 #[cfg(not(feature = "std"))]
 use spin::Mutex;
 
+use crate::seed::SeededState;
 use crate::sketch::CountMinSketch;
 
 extern crate alloc;
@@ -39,7 +40,7 @@ struct ShardInner<K, V> {
     /// Dense storage for O(1) sampling [Index -> Entry]
     entries: Vec<Entry<K, V>>,
     /// Mapping [Key -> Index]
-    lookup: HashMap<K, u32>,
+    lookup: HashMap<K, u32, SeededState>,
     /// Frequency sketch
     sketch: CountMinSketch<256, 4>,
     /// RNG state
@@ -59,7 +60,7 @@ where
         Self {
             inner: Mutex::new(ShardInner {
                 entries: Vec::with_capacity(capacity),
-                lookup: HashMap::with_capacity(capacity),
+                lookup: HashMap::with_capacity_and_hasher(capacity, SeededState::default()),
                 sketch: CountMinSketch::new(),
                 rng_state: 0xDEAD_BEEF_CAFE_BABEu64,
                 sample_count: 0,

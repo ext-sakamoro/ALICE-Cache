@@ -74,6 +74,7 @@ pub mod compression;
 pub mod crdt;
 pub mod jump_hash;
 pub mod oracle;
+pub mod seed;
 pub mod shard;
 pub mod sketch;
 pub mod tiered;
@@ -95,6 +96,7 @@ pub use compression::{compress, decompress, CompressedEntry, CompressionConfig, 
 pub use crdt::{CrdtClock, InvalidationEntry, InvalidationLog};
 pub use jump_hash::{jump_hash, jump_hash_bytes, jump_hash_u128};
 pub use oracle::{MarkovOracle, SharedOracle};
+pub use seed::{SeededHasher, SeededState, DEFAULT_SEED};
 pub use shard::CacheShard;
 pub use sketch::{CountMinSketch, Sketch16K, Sketch1K, Sketch4K};
 pub use tiered::{TieredCache, TieredConfig};
