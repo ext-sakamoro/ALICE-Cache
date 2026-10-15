@@ -1,0 +1,22 @@
+# Determinism gate (G10): no OS entropy and no wall clock in the crate's
+# production code. A cache lookup is meant to give the same answer for the same
+# operation sequence on every run and every target; a path that reads the
+# clock or draws OS randomness breaks that. CI runs clippy with
+# `--all-targets ... -D warnings`, which turns these into a red gate for the
+# library, the tests, the examples and the benches alike.
+#
+# Pinned by tests/determinism.rs (separate-process agreement and a digest
+# constant) and by scripts/entropy_guard.py (a source scan of src/).
+disallowed-methods = [
+    { path = "std::time::Instant::now", reason = "the wall clock makes results depend on timing; pass time in or use a step count" },
+    { path = "std::time::Instant::elapsed", reason = "reads the wall clock the same as Instant::now; duration_since on an already-held value is fine, this reads the clock again" },
+    { path = "std::time::SystemTime::elapsed", reason = "reads the wall clock the same as SystemTime::now; duration_since on an already-held value is fine, this reads the clock again" },
+    { path = "std::time::SystemTime::now", reason = "the wall clock makes results depend on timing; pass time in or use a step count" },
+    { path = "std::collections::hash_map::RandomState::new", reason = "seeds from OS randomness; use crate::seed::SeededState" },
+]
+disallowed-types = [
+    # disallowed-methods cannot name RandomState::default (a trait method, not
+    # reachable via the implementing type's path alone); naming the type here
+    # catches ::default() too, along with any other explicit naming.
+    { path = "std::collections::hash_map::RandomState", reason = "seeds from OS randomness; use crate::seed::SeededState" },
+]

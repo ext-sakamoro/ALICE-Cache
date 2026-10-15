@@ -128,3 +128,9 @@ jobs:
         run: |
           python3 scripts/test_workflow_timeouts.py
           python3 scripts/workflow_timeouts.py
+      # no OS entropy / wall clock in src/ (G10); 0 files or 0 patterns compared fails.
+      # clippy.toml carries the compiled second layer (disallowed RandomState / Instant / SystemTime)
+      - name: entropy-guard
+        run: |
+          python3 scripts/test_entropy_guard.py
+          python3 scripts/entropy_guard.py
