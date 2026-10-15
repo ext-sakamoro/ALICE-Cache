@@ -15,7 +15,7 @@ use parking_lot::Mutex;
 #[cfg(not(feature = "std"))]
 use spin::Mutex;
 
-use crate::seed::SeededState;
+use crate::seed::{SeededState, DEFAULT_SEED};
 use crate::sketch::CountMinSketch;
 
 extern crate alloc;
@@ -33,6 +33,8 @@ struct Entry<K, V> {
 /// Per-shard internal state
 pub struct CacheShard<K, V> {
     inner: Mutex<ShardInner<K, V>>,
+    /// lookup 表の hash (cache の shard 選択用 hash とは別の関数)
+    table_state: SeededState,
     capacity: usize,
 }
 
@@ -57,16 +59,31 @@ where
     /// Create new shard with given capacity
     #[must_use]
     pub fn new(capacity: usize) -> Self {
+        Self::with_table_state(capacity, SeededState::table_for(DEFAULT_SEED))
+    }
+
+    /// Create new shard whose lookup table uses `table_state`
+    ///
+    /// cache は shard 選択に使う hash と別の関数を渡す ([`SeededState::table_for`])
+    #[must_use]
+    pub fn with_table_state(capacity: usize, table_state: SeededState) -> Self {
         Self {
+            table_state,
             inner: Mutex::new(ShardInner {
                 entries: Vec::with_capacity(capacity),
-                lookup: HashMap::with_capacity_and_hasher(capacity, SeededState::default()),
+                lookup: HashMap::with_capacity_and_hasher(capacity, table_state),
                 sketch: CountMinSketch::new(),
                 rng_state: 0xDEAD_BEEF_CAFE_BABEu64,
                 sample_count: 0,
             }),
             capacity,
         }
+    }
+
+    /// lookup 表の hash 関数
+    #[must_use]
+    pub const fn table_state(&self) -> SeededState {
+        self.table_state
     }
 
     /// Get value by key (updates frequency)

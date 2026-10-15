@@ -15,6 +15,14 @@ use core::hash::{BuildHasher, Hasher};
 /// 既定の seed (`AliceCache::new` / `AliceCache::with_config` が使う)
 pub const DEFAULT_SEED: u64 = 0xA11C_E0CA_C4E5_EED1;
 
+/// shard 内の lookup 表の seed を cache の seed から作る時の定数
+///
+/// cache は hash の下位 bit で shard を選ぶ 表が同じ関数を使うと shard 内の全 key の
+/// 下位 bit が同じになり、hashbrown (下位 bit で bucket を選ぶ) の探索が 1 点に偏る
+/// 表の関数が cache の関数と、どの seed でも (`DEFAULT_SEED` でも) 別になるよう
+/// seed を splitmix64 に通してこの定数と xor する
+pub const TABLE_SEED_SALT: u64 = 0x7AB1_E5EE_D5A1_7ED3;
+
 const MUL: u64 = 0x9E37_79B9_7F4A_7C15;
 
 /// splitmix64 の 1 step (seed から 2 本の鍵を作る)
@@ -50,6 +58,15 @@ impl SeededState {
             k0,
             k1: splitmix64(k0),
         }
+    }
+}
+
+impl SeededState {
+    /// `seed` の cache の shard 内 lookup 表が使う関数 (cache 自身の
+    /// [`SeededState::with_seed`] とは別の関数、[`TABLE_SEED_SALT`] 参照)
+    #[must_use]
+    pub const fn table_for(seed: u64) -> Self {
+        Self::with_seed(splitmix64(seed) ^ TABLE_SEED_SALT)
     }
 }
 

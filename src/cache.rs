@@ -210,6 +210,13 @@ where
     ///
     /// 同じ seed と同じ操作列なら、どの実行・どの target でも hit / miss と
     /// 生き残る key の集合が同じになる ([`AliceCache::new`] は [`DEFAULT_SEED`])
+    ///
+    /// # Security
+    ///
+    /// seed は公開された固定値が既定なので、攻撃者が key を選べる場合は同じ shard /
+    /// 同じ bucket に落ちる key を作って性能を落とせる (以前の乱数 seed ではできなかった)
+    /// 信頼できない key を受ける呼び出し側は、秘密の seed を `with_seed` で渡す
+    /// (秘密の seed では決定性は seed を知る側の間でだけ成り立つ)
     #[must_use]
     pub fn with_seed(capacity: usize, seed: u64) -> Self {
         Self::with_config_and_seed(
@@ -238,7 +245,10 @@ where
 
         let mut shards = Vec::with_capacity(config.num_shards);
         for _ in 0..config.num_shards {
-            shards.push(CacheShard::new(shard_cap));
+            shards.push(CacheShard::with_table_state(
+                shard_cap,
+                SeededState::table_for(seed),
+            ));
         }
 
         let oracle = if config.enable_oracle {
@@ -414,6 +424,33 @@ pub type StandardCache<K, V> = AliceCache<K, V>;
 #[allow(clippy::doc_markdown)]
 mod tests {
     use super::*;
+
+    /// 1 shard に落ちる key の表 hash の下位 8 bit が散ること (hashbrown は下位 bit で
+    /// bucket を選ぶ)  表が cache と同じ関数だと全 key が 1 bucket に落ちる
+    #[test]
+    fn table_hash_spreads_keys_of_one_shard() {
+        for seed in [DEFAULT_SEED, 0, 1, 0xDEAD_BEEF] {
+            let cache = AliceCache::<u64, u64>::with_seed(65536, seed);
+            let table = cache.shards[0].table_state();
+            assert_ne!(table, cache.hash_builder, "seed {seed:#x}: same function");
+            let mut load = [0u32; 256];
+            let mut n = 0u32;
+            let mut k = 0u64;
+            while n < 25_600 {
+                let (idx, _) = cache.get_shard_idx(&k);
+                if idx == 0 {
+                    load[(table.hash_one(k) & 255) as usize] += 1;
+                    n += 1;
+                }
+                k += 1;
+            }
+            // 期待値 100 / bucket、一様なら最大は 100 + 5σ (σ = 10) 程度
+            let max = *load.iter().max().unwrap();
+            let used = load.iter().filter(|&&c| c > 0).count();
+            assert_eq!(used, 256, "seed {seed:#x}: empty buckets");
+            assert!(max < 160, "seed {seed:#x}: max bucket load {max}");
+        }
+    }
 
     #[test]
     fn shards_for_capacity_keeps_per_shard_capacity_sane() {

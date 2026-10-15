@@ -14,6 +14,13 @@ All notable changes to ALICE-Cache will be documented in this file.
 - hash の seed が OS の乱数だった (`ahash::RandomState::new()`) 同じ操作列でも実行ごとに key の shard 配置が変わり、どの key が追い出されずに残るか・hit が返す値が実行ごとに変わっていた 固定 seed の hash (`src/seed.rs`、乱数・時刻を読まず、入力を little-endian の byte 列として畳むので target に依らず同じ値) に置き換え、`AliceCache::new` / `with_config` は既定 seed (`DEFAULT_SEED`) を使う shard 内の lookup 表 (`hashbrown`) も同じ固定 seed にした 既定の構築でも追い出し結果は以前と変わる (実行間で固定になる)
 - 同じ操作列を別 process で走らせて生き残った key 集合と hit の値が一致すること、結果の FNV-1a digest が全 target で定数と一致することを `tests/determinism.rs` で固定した
 
+### Fixed
+- shard 内の lookup 表が shard 選択と同じ hash 関数を使っていたため、1 shard の key の下位 bit が全部同じになり hashbrown の探索が偏って put が約 2.5 倍、get が約 2 倍遅くなっていた 表の関数を cache の seed から別に導出 (`SeededState::table_for`、`DEFAULT_SEED` でも cache と別の関数) し、結果 (生き残る key / hit の値 / digest) は変えずに戻した `tests/determinism.rs` の digest は不変 shard の key が表の下位 bit に散ることを cache の試験で固定した
+- 固定の既定 seed は公開値なので、key を攻撃者が選べる場合は衝突する key を作れる (以前の乱数 seed ではできなかった) 信頼できない key を受ける呼び出し側は秘密の seed を `with_seed` で渡す (`with_seed` の rustdoc に記載)
+
+### Changed
+- CI: test job を `ubuntu-latest` と `ubuntu-24.04-arm` の matrix にした golden digest を別 CPU 構成でも固定する
+
 ### Added
 - `AliceCache::with_seed(capacity, seed)` / `AliceCache::with_config_and_seed(config, seed)` seed を明示でき、同じ seed と同じ操作列は常に同じ結果になる
 - `SeededState` / `SeededHasher` / `DEFAULT_SEED` を公開

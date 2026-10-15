@@ -28,8 +28,13 @@ env:
 
 jobs:
   test:
-    name: Test (lib + tests + doc + examples)
-    runs-on: ubuntu-latest
+    name: Test (lib + tests + doc + examples, ${{ matrix.os }})
+    # the golden digest in tests/determinism.rs must hold on x86_64 and aarch64
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
