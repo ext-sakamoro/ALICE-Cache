@@ -6,7 +6,6 @@
 //! - min_size 未満は compressed = false で生データ保持
 //! - CompressedEntry::ratio() は finite かつ [0, +inf) 範囲
 //!
-//! canonical CI template [[reference_alice_ci_canonical_template]] 準拠
 
 #![no_main]
 

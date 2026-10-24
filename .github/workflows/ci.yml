@@ -1,7 +1,6 @@
 name: CI
 
-# canonical CI template: [[reference_alice_ci_canonical_template]] 手順 4.5 / 4.6
-# 2026-09-15 強化 (罠 #25-27 / #29 遡及):
+# 2026-09-15 強化:
 # - clippy を `--all-targets` (benches / examples 含む) で pedantic `-D warnings`
 # - no_std job: それまで host の `--no-default-features` だけで、非 optional の parking_lot / ahash runtime RNG が
 #   host std を暗黙 link して見かけ green だった (crates.io の no-std category が dep レベルで偽) →
@@ -13,8 +12,6 @@ name: CI
 on:
   push:
     branches: [main, 'ci/**']
-  pull_request:
-    branches: [main]
 
 # on main each commit has a group of its own and a run there is never
 # cancelled; a newer run on the same branch cancels an older one only off main

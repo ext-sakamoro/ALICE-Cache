@@ -1,14 +1,13 @@
 # cargo-deny 設定 (v0.14+ schema)
 # https://embarkstudios.github.io/cargo-deny/
 #
-# canonical CI template: [[reference_alice_ci_canonical_template]]
 # ALICE-SDF v1.7.7 (commit 52d26f9) の deny.toml を base に ALICE-Cache 用に調整
 #
 # ALICE-Cache 自体は LicenseRef-Proprietary (publish = false なので [licenses.private] で除外)
 # alice-crypto / alice-analytics sibling は MIT OR Apache-2.0 stub 生成 (alice-stubs action 経由)
-# canonical 罠 #7: target-side self-exception で自己許可
-# canonical 罠 #14: font 系 license (OFL-1.1 / Ubuntu-font-1.0 / NCSA) を allowlist に追加
-# canonical 罠 #15: paste / ttf-parser unmaintained ignore
+# target-side self-exception で自己許可
+# font 系 license (OFL-1.1 / Ubuntu-font-1.0 / NCSA) を allowlist に追加
+# paste / ttf-parser unmaintained ignore
 
 [graph]
 all-features = false
@@ -28,7 +27,7 @@ yanked = "deny"
 ignore = [
     # paste 1.0.15 unmaintained (pyo3-macros transitive)
     "RUSTSEC-2024-0436",
-    # ttf-parser unmaintained (RUSTSEC-2026-0192、egui / font transitive、canonical 罠 #15)
+    # ttf-parser unmaintained (RUSTSEC-2026-0192、egui / font transitive)
     "RUSTSEC-2026-0192",
     # pyo3 0.27.2 CVE (python feature 有効時のみ、0.29 移行で解消 pending)
     "RUSTSEC-2026-0176",  # nth/nth_back out-of-bounds read
@@ -56,7 +55,7 @@ allow = [
     "BSL-1.0",
     "MPL-2.0",
     "OpenSSL",
-    # Font-related licenses (canonical 罠 #14)
+    # Font-related licenses
     "OFL-1.1",           # SIL Open Font License (Ubuntu Mono / Noto 等)
     "Ubuntu-font-1.0",   # Ubuntu Font License
     # LLVM ecosystem

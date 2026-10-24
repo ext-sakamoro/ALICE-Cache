@@ -6,7 +6,6 @@
 //! - panic せず finite time で完了
 //! - u128 / bytes 版も同不変式
 //!
-//! canonical CI template [[reference_alice_ci_canonical_template]] 準拠
 
 #![no_main]
 

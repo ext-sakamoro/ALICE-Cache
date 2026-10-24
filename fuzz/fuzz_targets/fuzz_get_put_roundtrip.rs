@@ -7,7 +7,6 @@
 //! - hit_rate は [0.0, 1.0] 範囲内
 //! - len は capacity を超えない
 //!
-//! canonical CI template [[reference_alice_ci_canonical_template]] 準拠
 
 #![no_main]
 
