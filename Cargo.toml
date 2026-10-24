@@ -2,9 +2,10 @@
 name = "alice-cache"
 version = "0.2.0"
 edition = "2021"
-authors = ["Moroya Sakamoto <sakamoro@alicelaw.net>"]
+authors = ["Moroya Sakamoto"]
 description = "Predictive Distributed Caching System — SDF-gradient locality + probabilistic hit/miss forecasting"
-license = "AGPL-3.0-or-later OR LicenseRef-Commercial"
+license = "LicenseRef-Proprietary"
+publish = false
 repository = "https://github.com/ext-sakamoro/ALICE-Cache"
 keywords = ["cache", "distributed", "predictive", "sdf", "no_std"]
 categories = ["caching", "concurrency", "no-std"]

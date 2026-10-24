@@ -4,7 +4,7 @@
 # canonical CI template: [[reference_alice_ci_canonical_template]]
 # ALICE-SDF v1.7.7 (commit 52d26f9) の deny.toml を base に ALICE-Cache 用に調整
 #
-# ALICE-Cache 自体は AGPL-3.0 (single-license 表記)
+# ALICE-Cache 自体は LicenseRef-Proprietary (publish = false なので [licenses.private] で除外)
 # alice-crypto / alice-analytics sibling は MIT OR Apache-2.0 stub 生成 (alice-stubs action 経由)
 # canonical 罠 #7: target-side self-exception で自己許可
 # canonical 罠 #14: font 系 license (OFL-1.1 / Ubuntu-font-1.0 / NCSA) を allowlist に追加
@@ -63,6 +63,10 @@ allow = [
     "NCSA",              # libfuzzer-sys / LLVM related
 ]
 
+# workspace crates are not checked against the allow list
+[licenses.private]
+ignore = true
+
 [[licenses.clarify]]
 name = "ring"
 version = "*"
@@ -75,15 +79,6 @@ version = "*"
 expression = "ISC"
 license-files = [{ path = "LICENSE", hash = 0x001c7e6c }]
 
-# ALICE-Cache 自身 (target crate) が AGPL-3.0 だが cargo-deny は target も
-# license check 対象にするため exception で自己許可
-# (canonical [[reference_alice_ci_canonical_template]] 罠 #7 の target-side 版)
-[[licenses.exceptions]]
-name = "alice-cache"
-allow = ["AGPL-3.0", "AGPL-3.0-only", "AGPL-3.0-or-later"]
-
-# AGPL sibling path dep (canonical [[reference_alice_ci_canonical_template]] AGPL sibling exception)
-# CI では MIT stub、local では実 crate (AGPL-3.0-or-later) が解決されるため両方許可
 [[licenses.exceptions]]
 name = "alice-crypto"
 allow = ["AGPL-3.0", "AGPL-3.0-only", "AGPL-3.0-or-later"]
