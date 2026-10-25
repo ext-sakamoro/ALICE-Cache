@@ -5,11 +5,10 @@ All notable changes to ALICE-Cache will be documented in this file.
 ## [Unreleased]
 
 ### Changed
-- Licence: `AGPL-3.0-or-later OR LicenseRef-Commercial` → `LicenseRef-Proprietary`
+- Licence: `AGPL-3.0-or-later` → `LicenseRef-Proprietary`
 - CI: production code (`src/`) が OS の乱数・時刻を読まないことを検査する `scripts/entropy_guard.py` (試験 `scripts/test_entropy_guard.py`) を足した `RandomState` の使用 (`::default()` を含む)、`getrandom` `OsRng` `thread_rng` `SystemTime::now` `Instant::now` などを `#[cfg(test)]` の外で見つけると失敗し、読んだ file か pattern が 0 件でも失敗する `clippy.toml` の `disallowed-methods` / `disallowed-types` が同じ対象を型解決で止める CI (actionlint job) と preflight で走る
 - CI: 上限の無かった 15 job に `timeout-minutes` を付けた (止まった step は共有 runner を GitHub の上限の 6 時間まで占有しうる) 値は直近の成功した run 10 本の所要時間の最大の 2 倍・中央値の 4 倍の大きい方を 5 分単位に切り上げ、cargo を使う job は最低 15 分 (cache が外れた build のため)、他は最低 10 分 fuzz は 30 分で、`workflow_dispatch` の `duration_seconds` は 1 から 1200 の整数 (先頭の 0 は不可、0 は libFuzzer で無制限になる) でなければ理由を出して止める (それより長い run は build と合わせて上限を超え途中で切れる) 入力は script に埋め込まず `env` で渡す `scripts/workflow_timeouts.py` (試験 `scripts/test_workflow_timeouts.py`、ALICE-LOL と byte 一致) が全 job の上限を検査し、job を 1 つも読めなければ失敗する CI (actionlint job) と preflight で走る
 - CI: どの workflow も `ci/**` の branch への push でも走るようにした (`push.branches` に `ci/**` を足した) main に入れる前の commit をその branch で検証するため これまでは main への push と pull request でしか走らず、branch の commit には CI の結果が無かった ci.yml には concurrency を足し、同じ branch に新しい commit が来たら古い run を止める (main では commit ごとに別の group で止めない) path の条件がある workflow (fuzz / security-audit) は従来どおり対象の path が変わった時だけ走る、その 2 つにも ci.yml と同じ concurrency (main は commit ごとの独立 group) を足した
-- License: `AGPL-3.0-or-later` → `AGPL-3.0-or-later OR LicenseRef-Commercial` (2026-09-27)
 
 ### Fixed
 - hash の seed が OS の乱数だった (`ahash::RandomState::new()`) 同じ操作列でも実行ごとに key の shard 配置が変わり、どの key が追い出されずに残るか・hit が返す値が実行ごとに変わっていた 固定 seed の hash (`src/seed.rs`、乱数・時刻を読まず、入力を little-endian の byte 列として畳むので target に依らず同じ値) に置き換え、`AliceCache::new` / `with_config` は既定 seed (`DEFAULT_SEED`) を使う shard 内の lookup 表 (`hashbrown`) も同じ固定 seed にした 既定の構築でも追い出し結果は以前と変わる (実行間で固定になる)
