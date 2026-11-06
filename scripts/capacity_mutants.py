@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Breaks the shard capacity split one way at a time; tests/shard_capacity.rs must go red.
+"""Breaks the shard capacity split one way at a time; tests/shard_capacity.rs or tests/huge_sizes.rs must go red.
 
 usage: python3 scripts/capacity_mutants.py
 exit 0 if every mutant applied, compiled and made a test report FAILED; exit 1 otherwise.
@@ -17,8 +17,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE = ROOT / "src" / "cache.rs"
+COMPRESSION = ROOT / "src" / "compression.rs"
 SHARD = ROOT / "src" / "shard.rs"
-COMMAND = ["cargo", "test", "--test", "shard_capacity"]
+COMMAND = ["cargo", "test", "--test", "shard_capacity", "--test", "huge_sizes"]
 FAILED = re.compile(r"^test .* \.\.\. .*FAILED|signal: \d+", re.M)
 TIMEOUT_SECS = 300
 
@@ -28,9 +29,21 @@ MUTANTS = [
     ("every shard rounded up", CACHE, ONE_MORE, "config.capacity.div_ceil(config.num_shards),"),
     ("every shard rounded down", CACHE, ONE_MORE, "floor,"),
     ("one shard too many get one more", CACHE, "usize::from(i < with_one_more)", "usize::from(i <= with_one_more)"),
-    ("shard count not lowered", CACHE, "config.num_shards = config.num_shards.min(fits);\n", ""),
-    ("shard count lowered too far", CACHE, "config.num_shards = config.num_shards.min(fits);", "config.num_shards = 1;"),
+    ("shard count not lowered", CACHE, "config.num_shards = config.num_shards.min(fits).min(MAX_SHARDS);\n", ""),
+    ("shard count lowered too far", CACHE, "config.num_shards = config.num_shards.min(fits).min(MAX_SHARDS);", "config.num_shards = 1;"),
     ("capacity 0 stores a key", SHARD, "if self.capacity == 0 {\n            return;\n        }\n", ""),
+    ("the entry table preallocated", SHARD, "entries: Vec::with_capacity(capacity.min(PREALLOC_ENTRIES)),", "entries: Vec::with_capacity(capacity),"),
+    ("the lookup table preallocated", SHARD, """HashMap::with_capacity_and_hasher(
+                    capacity.min(PREALLOC_ENTRIES),""", """HashMap::with_capacity_and_hasher(
+                    capacity,"""),
+    ("a shard makes room for more", SHARD, "const PREALLOC_ENTRIES: usize = 64;", "const PREALLOC_ENTRIES: usize = 4096;"),
+    ("no limit of shards", CACHE, "config.num_shards.min(fits).min(MAX_SHARDS)", "config.num_shards.min(fits)"),
+    ("the limit of shards is one step low", CACHE, "config.num_shards.min(fits).min(MAX_SHARDS)", "config.num_shards.min(fits).min(MAX_SHARDS / 2)"),
+    ("decompress preallocates what it is told", COMPRESSION, "Vec::with_capacity(expected_size.min(data.len().saturating_mul(65535 / 5)))", "Vec::with_capacity(expected_size)"),
+    ("a dropped put is counted", CACHE, """        if self.config.capacity == 0 {
+            return;
+        }
+        let (shard_idx, hash) = self.get_shard_idx(&key);""", "        let (shard_idx, hash) = self.get_shard_idx(&key);"),
     ("capacity 1 treated as 0", SHARD, "if self.capacity == 0 {", "if self.capacity <= 1 {"),
 ]
 

@@ -23,6 +23,12 @@ extern crate alloc;
 /// Number of samples for eviction
 const EVICTION_SAMPLES: usize = 5;
 
+/// Entries a shard makes room for before it holds any.
+///
+/// There is no outside spec for this; a capacity is a limit and can be far more than memory, so room
+/// past this is made as entries arrive. It saves growing a table for the sizes shards usually have.
+const PREALLOC_ENTRIES: usize = 64;
+
 /// Entry stored in the dense slab
 struct Entry<K, V> {
     key: K,
@@ -70,8 +76,11 @@ where
         Self {
             table_state,
             inner: Mutex::new(ShardInner {
-                entries: Vec::with_capacity(capacity),
-                lookup: HashMap::with_capacity_and_hasher(capacity, table_state),
+                entries: Vec::with_capacity(capacity.min(PREALLOC_ENTRIES)),
+                lookup: HashMap::with_capacity_and_hasher(
+                    capacity.min(PREALLOC_ENTRIES),
+                    table_state,
+                ),
                 sketch: CountMinSketch::new(),
                 rng_state: 0xDEAD_BEEF_CAFE_BABEu64,
                 sample_count: 0,

@@ -11,6 +11,9 @@ All notable changes to ALICE-Cache will be documented in this file.
 - CI: どの workflow も `ci/**` の branch への push でも走るようにした (`push.branches` に `ci/**` を足した) main に入れる前の commit をその branch で検証するため これまでは main への push と pull request でしか走らず、branch の commit には CI の結果が無かった ci.yml には concurrency を足し、同じ branch に新しい commit が来たら古い run を止める (main では commit ごとに別の group で止めない) path の条件がある workflow (fuzz / security-audit) は従来どおり対象の path が変わった時だけ走る、その 2 つにも ci.yml と同じ concurrency (main は commit ごとの独立 group) を足した
 
 ### Fixed
+- `AliceCache::new` などが大きい `capacity` や `num_shards` の分を先に確保し、`memory allocation failed` で process ごと abort していた 先に確保するのは shard あたり `PREALLOC_ENTRIES` 件までにして、あとは入れた分だけ伸ばす `num_shards` は新しい `MAX_SHARDS` (2^16) まで下げる
+- `decompress`: `original_size` の分を先に確保していたので、大きい値で abort していた data から作れる長さまでしか先に確保しない
+- 容量 0 の cache で捨てた `put` を `inserts` に数えていた
 - `with_config` / `with_config_and_seed`: shard の容量を切り上げていたので、満杯の cache が `capacity + num_shards - 1` 件まで持てた 容量の合計を `capacity` に揃える (余りは先頭の shard に 1 件ずつ) `capacity` が割り切れない時は生き残る key の集合が変わる
 - `capacity` より多い shard を指定した時は、`capacity` に収まる最大の 2 の冪まで shard を減らす 容量 0 の shard を作らない 実際の数は新しい `AliceCache::num_shards` で読める
 - 容量 0 の cache が 1 件保持していた `put` を捨て `get` は `None` を返す

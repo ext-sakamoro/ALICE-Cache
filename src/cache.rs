@@ -20,6 +20,14 @@ extern crate alloc;
 
 /// Default number of shards (must be power of 2)
 const DEFAULT_SHARDS: usize = 256;
+
+/// The most shards a cache uses; a larger `num_shards` is lowered to this.
+///
+/// There is no outside spec for this; it is chosen because a shard of `u64` keys and values takes
+/// about 5 KiB before it holds anything (measured, `tests/huge_sizes.rs`), so this bounds that cost
+/// at about 320 MiB whatever the configuration says, and contention stops being a reason for more
+/// long before this many.
+pub const MAX_SHARDS: usize = 1 << 16;
 /// `AliceCache::new(capacity)` が shard 数を選ぶときの 1 shard あたり最小容量
 ///
 /// shard 数を capacity に無関係に 256 固定にすると、小容量 cache で 1 shard あたり
@@ -233,8 +241,9 @@ where
     ///
     /// The shard capacities add up to `capacity`, so a full cache holds exactly `capacity` entries.
     /// With fewer slots than shards, `num_shards` is lowered to the largest power of two that fits:
-    /// a shard with no room would drop every key that hashes to it. With capacity 0 every `put` is
-    /// dropped and every `get` returns `None`.
+    /// a shard with no room would drop every key that hashes to it. It is also lowered to
+    /// [`MAX_SHARDS`]. With capacity 0 every `put` is dropped and every `get` returns `None`.
+    /// Capacity is a limit: memory grows with what the cache holds.
     ///
     /// # Panics
     ///
@@ -248,7 +257,7 @@ where
 
         // `capacity.max(1)`: capacity 0 is one shard with no room
         let fits = 1usize << config.capacity.max(1).ilog2();
-        config.num_shards = config.num_shards.min(fits);
+        config.num_shards = config.num_shards.min(fits).min(MAX_SHARDS);
 
         let floor = config.capacity / config.num_shards;
         let with_one_more = config.capacity % config.num_shards;
@@ -308,6 +317,9 @@ where
     /// May trigger eviction if shard is at capacity.
     #[inline(always)]
     pub fn put(&self, key: K, value: V) {
+        if self.config.capacity == 0 {
+            return;
+        }
         let (shard_idx, hash) = self.get_shard_idx(&key);
         self.shards[shard_idx].put(key, value, hash);
         self.stats.inserts.fetch_add(1, Ordering::Relaxed);
