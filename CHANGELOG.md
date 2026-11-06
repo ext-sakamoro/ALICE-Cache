@@ -11,6 +11,10 @@ All notable changes to ALICE-Cache will be documented in this file.
 - CI: どの workflow も `ci/**` の branch への push でも走るようにした (`push.branches` に `ci/**` を足した) main に入れる前の commit をその branch で検証するため これまでは main への push と pull request でしか走らず、branch の commit には CI の結果が無かった ci.yml には concurrency を足し、同じ branch に新しい commit が来たら古い run を止める (main では commit ごとに別の group で止めない) path の条件がある workflow (fuzz / security-audit) は従来どおり対象の path が変わった時だけ走る、その 2 つにも ci.yml と同じ concurrency (main は commit ごとの独立 group) を足した
 
 ### Fixed
+- `with_config` / `with_config_and_seed`: shard の容量を切り上げていたので、満杯の cache が `capacity + num_shards - 1` 件まで持てた 容量の合計を `capacity` に揃える (余りは先頭の shard に 1 件ずつ) `capacity` が割り切れない時は生き残る key の集合が変わる
+- `capacity` より多い shard を指定した時は、`capacity` に収まる最大の 2 の冪まで shard を減らす 容量 0 の shard を作らない 実際の数は新しい `AliceCache::num_shards` で読める
+- 容量 0 の cache が 1 件保持していた `put` を捨て `get` は `None` を返す
+- CI: `fuzz.yml` の `Run fuzz target` の `continue-on-error` を外し、crash で job を red にする artifact は残す `fuzz_get_put_roundtrip` は capacity 0 と shard より小さい capacity も試し、put 直後の get を確かめる
 - hash の seed が OS の乱数だった (`ahash::RandomState::new()`) 同じ操作列でも実行ごとに key の shard 配置が変わり、どの key が追い出されずに残るか・hit が返す値が実行ごとに変わっていた 固定 seed の hash (`src/seed.rs`、乱数・時刻を読まず、入力を little-endian の byte 列として畳むので target に依らず同じ値) に置き換え、`AliceCache::new` / `with_config` は既定 seed (`DEFAULT_SEED`) を使う shard 内の lookup 表 (`hashbrown`) も同じ固定 seed にした 既定の構築でも追い出し結果は以前と変わる (実行間で固定になる)
 - 同じ操作列を別 process で走らせて生き残った key 集合と hit の値が一致すること、結果の FNV-1a digest が全 target で定数と一致することを `tests/determinism.rs` で固定した
 

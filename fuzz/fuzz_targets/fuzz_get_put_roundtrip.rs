@@ -6,6 +6,7 @@
 //! - put 直後の get で同値を取得可能 (eviction 発生時は None も許容)
 //! - hit_rate は [0.0, 1.0] 範囲内
 //! - len は capacity を超えない
+//! - capacity 0 は何も保持せず、1 以上なら put した直後の key は get で返る
 //!
 
 #![no_main]
@@ -24,7 +25,7 @@ enum Op {
 
 #[derive(Debug, Arbitrary)]
 struct FuzzInput {
-    // capacity は 16..=4096 の範囲に絞る (fuzz 速度 + 現実的 workload)
+    // capacity は 0..=4095 (shard より少ない場合と 0 を含む)
     capacity_seed: u16,
     // num_shards は power of 2 制約 → seed から 1/2/4/8/16 の 5 択
     shards_seed: u8,
@@ -32,7 +33,7 @@ struct FuzzInput {
 }
 
 fuzz_target!(|input: FuzzInput| {
-    let capacity = ((input.capacity_seed as usize) % 4080) + 16;
+    let capacity = (input.capacity_seed as usize) % 4096;
     let num_shards: usize = 1 << (input.shards_seed % 5); // 1, 2, 4, 8, 16
 
     let cache = AliceCache::<u32, u64>::with_config(CacheConfig {
@@ -50,6 +51,8 @@ fuzz_target!(|input: FuzzInput| {
         match op {
             Op::Put { key, value } => {
                 cache.put(*key, *value);
+                let expected = (capacity > 0).then_some(*value);
+                assert_eq!(cache.get(key), expected);
             }
             Op::Get { key } => {
                 let _ = cache.get(key);

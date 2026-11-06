@@ -231,22 +231,32 @@ where
 
     /// Create new cache with custom configuration and an explicit hash seed
     ///
+    /// The shard capacities add up to `capacity`, so a full cache holds exactly `capacity` entries.
+    /// With fewer slots than shards, `num_shards` is lowered to the largest power of two that fits:
+    /// a shard with no room would drop every key that hashes to it. With capacity 0 every `put` is
+    /// dropped and every `get` returns `None`.
+    ///
     /// # Panics
     ///
     /// Panics if `num_shards` is not a power of two.
     #[must_use]
-    pub fn with_config_and_seed(config: CacheConfig, seed: u64) -> Self {
+    pub fn with_config_and_seed(mut config: CacheConfig, seed: u64) -> Self {
         assert!(
             config.num_shards.is_power_of_two(),
             "num_shards must be power of 2"
         );
 
-        let shard_cap = config.capacity.div_ceil(config.num_shards);
+        // `capacity.max(1)`: capacity 0 is one shard with no room
+        let fits = 1usize << config.capacity.max(1).ilog2();
+        config.num_shards = config.num_shards.min(fits);
+
+        let floor = config.capacity / config.num_shards;
+        let with_one_more = config.capacity % config.num_shards;
 
         let mut shards = Vec::with_capacity(config.num_shards);
-        for _ in 0..config.num_shards {
+        for i in 0..config.num_shards {
             shards.push(CacheShard::with_table_state(
-                shard_cap,
+                floor + usize::from(i < with_one_more),
                 SeededState::table_for(seed),
             ));
         }
@@ -359,6 +369,14 @@ where
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.shards.iter().all(super::shard::CacheShard::is_empty)
+    }
+
+    /// The number of shards in use, which can be lower than the configured one
+    /// (see [`AliceCache::with_config_and_seed`])
+    #[inline(always)]
+    #[must_use]
+    pub const fn num_shards(&self) -> usize {
+        self.shard_mask + 1
     }
 
     /// Total capacity

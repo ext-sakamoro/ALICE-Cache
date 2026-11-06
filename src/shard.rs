@@ -118,6 +118,10 @@ where
             return;
         }
 
+        if self.capacity == 0 {
+            return;
+        }
+
         // Insert new - evict if at capacity
         if inner.entries.len() >= self.capacity {
             Self::sampled_evict(inner);
