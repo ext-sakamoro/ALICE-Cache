@@ -143,8 +143,8 @@ fn rle_compress(data: &[u8]) -> Vec<u8> {
 
 /// RLE 伸長。
 fn rle_decompress(data: &[u8], expected_size: usize) -> Vec<u8> {
-    // `expected_size` is what the caller says; a run of 65535 bytes takes 5 bytes of data
-    let mut out = Vec::with_capacity(expected_size.min(data.len().saturating_mul(65535 / 5)));
+    // `expected_size` is what the caller says, so it only reserves what the data already takes
+    let mut out = Vec::with_capacity(expected_size.min(data.len()));
     let mut i = 0;
 
     while i < data.len() {

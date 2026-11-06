@@ -37,9 +37,11 @@ MUTANTS = [
                     capacity.min(PREALLOC_ENTRIES),""", """HashMap::with_capacity_and_hasher(
                     capacity,"""),
     ("a shard makes room for more", SHARD, "const PREALLOC_ENTRIES: usize = 64;", "const PREALLOC_ENTRIES: usize = 4096;"),
+    ("decompress reserves twice the data", COMPRESSION, "Vec::with_capacity(expected_size.min(data.len()))", "Vec::with_capacity(expected_size.min(data.len() * 2))"),
     ("no limit of shards", CACHE, "config.num_shards.min(fits).min(MAX_SHARDS)", "config.num_shards.min(fits)"),
     ("the limit of shards is one step low", CACHE, "config.num_shards.min(fits).min(MAX_SHARDS)", "config.num_shards.min(fits).min(MAX_SHARDS / 2)"),
-    ("decompress preallocates what it is told", COMPRESSION, "Vec::with_capacity(expected_size.min(data.len().saturating_mul(65535 / 5)))", "Vec::with_capacity(expected_size)"),
+    ("decompress preallocates what it is told", COMPRESSION, "Vec::with_capacity(expected_size.min(data.len()))", "Vec::with_capacity(expected_size)"),
+    ("decompress reserves the most the data could make", COMPRESSION, "Vec::with_capacity(expected_size.min(data.len()))", "Vec::with_capacity(expected_size.min(data.len().saturating_mul(65535 / 5)))"),
     ("a dropped put is counted", CACHE, """        if self.config.capacity == 0 {
             return;
         }

@@ -17,13 +17,15 @@ const REFUSE_ABOVE: usize = 1 << 31;
 
 struct Counting;
 static LIVE: AtomicUsize = AtomicUsize::new(0);
+static PEAK: AtomicUsize = AtomicUsize::new(0);
 
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, l: Layout) -> *mut u8 {
         if LIVE.load(Ordering::Relaxed).saturating_add(l.size()) > REFUSE_ABOVE {
             return std::ptr::null_mut();
         }
-        LIVE.fetch_add(l.size(), Ordering::Relaxed);
+        let n = LIVE.fetch_add(l.size(), Ordering::Relaxed) + l.size();
+        PEAK.fetch_max(n, Ordering::Relaxed);
         unsafe { System.alloc(l) }
     }
     unsafe fn dealloc(&self, p: *mut u8, l: Layout) {
@@ -127,6 +129,44 @@ fn decompress_makes_what_the_data_says_for_any_original_size() {
             "{original_size}"
         );
     }
+}
+
+/// What `decompress` allocated above where it started, at the most, and what it made.
+///
+/// A reserve past `REFUSE_ABOVE` is refused and ends the test, having allocated nothing.
+fn peak_of_decompress(data: Vec<u8>, original_size: usize) -> (usize, Vec<u8>) {
+    let entry = CompressedEntry {
+        data,
+        original_size,
+        compressed: true,
+    };
+    let before = LIVE.load(Ordering::Relaxed);
+    PEAK.store(before, Ordering::Relaxed);
+    let out = decompress(&entry);
+    (PEAK.load(Ordering::Relaxed) - before, out)
+}
+
+#[test]
+fn decompress_does_not_reserve_on_the_word_of_original_size() {
+    let _one = ONE_AT_A_TIME.lock().unwrap();
+    // 10 MiB of data that could expand 13107 times over, to 137 GiB. Nothing here expands
+    let data = vec![7; 10 << 20];
+    for original_size in [usize::MAX, 1 << 40, 64 << 20] {
+        let (peak, out) = peak_of_decompress(data.clone(), original_size);
+        assert_eq!(out, data, "{original_size}");
+        assert_eq!(peak, data.len(), "{original_size}");
+    }
+}
+
+#[test]
+fn decompress_grows_with_what_it_decodes() {
+    let _one = ONE_AT_A_TIME.lock().unwrap();
+    // 100 full runs: 500 bytes of data make 6553500 bytes
+    let data: Vec<u8> = (0..100).flat_map(|_| [0xFF, 0x00, 9, 0xFF, 0xFF]).collect();
+    let (peak, out) = peak_of_decompress(data, usize::MAX);
+    assert_eq!(out.len(), 100 * 65535);
+    // growth doubles, and the old buffer is live while the new one is filled
+    assert!(peak <= 3 * out.len(), "{peak}");
 }
 
 #[test]
