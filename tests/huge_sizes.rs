@@ -154,7 +154,8 @@ fn decompress_does_not_reserve_on_the_word_of_original_size() {
     for original_size in [usize::MAX, 1 << 40, 64 << 20] {
         let (peak, out) = peak_of_decompress(data.clone(), original_size);
         assert_eq!(out, data, "{original_size}");
-        assert_eq!(peak, data.len(), "{original_size}");
+        // the count covers the whole process, so the test harness can add a little at any time
+        assert!(peak < data.len() + (1 << 20), "{original_size}: {peak}");
     }
 }
 
