@@ -6,7 +6,7 @@
 # Run `--quick` before every push.
 #
 # usage: scripts/preflight.sh [--quick]   (--quick skips the test / bench suites)
-# generator rev 94ac16beb455be99e4675fe0648f996589e96bee
+# generator rev 10dd87cfcc84e1c073b63085c0d64c31195a9683
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # --- heavy slot (begin) ---
@@ -442,6 +442,9 @@ has_toolchain() { grep -q "^$1" <<<"$(rustup toolchain list)"; }
 #   - fuzz.yml:fuzz:Install cargo-fuzz [target=fuzz_compression_roundtrip] (needs network / runner-only)
 #   - fuzz.yml:fuzz:Set fuzz duration [target=fuzz_compression_roundtrip] (no cargo / grep)
 #   - fuzz.yml:fuzz:Run fuzz target (time-boxed) [target=fuzz_compression_roundtrip] (runner-only (open-ended or unprovable-bounded fuzz run))
+#   - fuzz.yml:fuzz:Install cargo-fuzz [target=fuzz_decompress_entry] (needs network / runner-only)
+#   - fuzz.yml:fuzz:Set fuzz duration [target=fuzz_decompress_entry] (no cargo / grep)
+#   - fuzz.yml:fuzz:Run fuzz target (time-boxed) [target=fuzz_decompress_entry] (runner-only (open-ended or unprovable-bounded fuzz run))
 #   - fuzz.yml:gate:gate (reads NEEDS, a value only the runner has)
 
 need actionlint "brew install actionlint"
@@ -686,6 +689,20 @@ if has_toolchain nightly && cargo +nightly fuzz --version >/dev/null 2>&1; then
   )
 else
   echo 'PREFLIGHT-SKIP: fuzz.yml / fuzz: Build fuzz target [target=fuzz_compression_roundtrip]: nightly / cargo-fuzz not installed' >&2
+fi
+)
+
+step "fuzz.yml / fuzz: Build fuzz target [target=fuzz_decompress_entry]"
+(
+  gh_step fuzz.yml.fuzz
+if has_toolchain nightly && cargo +nightly fuzz --version >/dev/null 2>&1; then
+  (
+    export CARGO_TERM_COLOR="always"
+    cd fuzz
+    cargo +nightly fuzz build "fuzz_decompress_entry"
+  )
+else
+  echo 'PREFLIGHT-SKIP: fuzz.yml / fuzz: Build fuzz target [target=fuzz_decompress_entry]: nightly / cargo-fuzz not installed' >&2
 fi
 )
 

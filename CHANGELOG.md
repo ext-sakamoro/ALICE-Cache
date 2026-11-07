@@ -5,6 +5,7 @@ All notable changes to ALICE-Cache will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **破壊的**: `decompress` の戻り値を `Vec<u8>` から `Result<Vec<u8>, DecompressError>` に変更 切れた run、`compress` が書かない tag、`original_size` と違う長さを断る 以前はどれも成功として返していた `original_size` を超える出力は書く前に止める `compress` の出力は変わらない
 - Licence: `AGPL-3.0-or-later` → `LicenseRef-Proprietary`
 - CI: production code (`src/`) が OS の乱数・時刻を読まないことを検査する `scripts/entropy_guard.py` (試験 `scripts/test_entropy_guard.py`) を足した `RandomState` の使用 (`::default()` を含む)、`getrandom` `OsRng` `thread_rng` `SystemTime::now` `Instant::now` などを `#[cfg(test)]` の外で見つけると失敗し、読んだ file か pattern が 0 件でも失敗する `clippy.toml` の `disallowed-methods` / `disallowed-types` が同じ対象を型解決で止める CI (actionlint job) と preflight で走る
 - CI: 上限の無かった 15 job に `timeout-minutes` を付けた (止まった step は共有 runner を GitHub の上限の 6 時間まで占有しうる) 値は直近の成功した run 10 本の所要時間の最大の 2 倍・中央値の 4 倍の大きい方を 5 分単位に切り上げ、cargo を使う job は最低 15 分 (cache が外れた build のため)、他は最低 10 分 fuzz は 30 分で、`workflow_dispatch` の `duration_seconds` は 1 から 1200 の整数 (先頭の 0 は不可、0 は libFuzzer で無制限になる) でなければ理由を出して止める (それより長い run は build と合わせて上限を超え途中で切れる) 入力は script に埋め込まず `env` で渡す `scripts/workflow_timeouts.py` (試験 `scripts/test_workflow_timeouts.py`、ALICE-LOL と byte 一致) が全 job の上限を検査し、job を 1 つも読めなければ失敗する CI (actionlint job) と preflight で走る

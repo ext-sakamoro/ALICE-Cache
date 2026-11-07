@@ -92,7 +92,9 @@ pub mod python;
 // Re-exports
 pub use batch::BatchGetResult;
 pub use cache::{AliceCache, CacheConfig, CacheStats, StandardCache, MAX_SHARDS};
-pub use compression::{compress, decompress, CompressedEntry, CompressionConfig, CompressionStats};
+pub use compression::{
+    compress, decompress, CompressedEntry, CompressionConfig, CompressionStats, DecompressError,
+};
 pub use crdt::{CrdtClock, InvalidationEntry, InvalidationLog};
 pub use jump_hash::{jump_hash, jump_hash_bytes, jump_hash_u128};
 pub use oracle::{MarkovOracle, SharedOracle};

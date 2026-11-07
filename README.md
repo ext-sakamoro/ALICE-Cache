@@ -240,7 +240,7 @@ use alice_cache::{compress, decompress, CompressionConfig};
 
 let data = b"aaabbbccc";
 let compressed = compress(data, &CompressionConfig::default());
-let restored = decompress(&compressed);
+let restored = decompress(&compressed).unwrap();
 assert_eq!(&restored, data);
 ```
 

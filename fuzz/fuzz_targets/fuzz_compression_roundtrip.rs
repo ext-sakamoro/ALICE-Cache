@@ -50,7 +50,7 @@ fuzz_target!(|input: FuzzInput| {
     );
 
     // roundtrip: compress → decompress で bit-exact
-    let restored = decompress(&entry);
+    let restored = decompress(&entry).expect("what compress wrote reads");
     assert_eq!(
         restored, data,
         "compression roundtrip must be bit-exact (compressed={})",

@@ -7,6 +7,7 @@ name: Fuzz
 #   - fuzz_get_put_roundtrip: sharded cache の insert/get/remove panic-freedom + roundtrip
 #   - fuzz_jump_hash: jump consistent hash 不変式 (0 <= result < num_buckets) 検証
 #   - fuzz_compression_roundtrip: RLE compress/decompress の bit-exact roundtrip
+#   - fuzz_decompress_entry: 切れた入力と original_size の違う入力を decompress が断る
 #
 # 罠:
 # - cargo-fuzz は nightly toolchain 必須 (rust-toolchain 不使用時も明示指定)
@@ -77,6 +78,7 @@ jobs:
           - fuzz_get_put_roundtrip
           - fuzz_jump_hash
           - fuzz_compression_roundtrip
+          - fuzz_decompress_entry
     steps:
       - uses: actions/checkout@v5
 

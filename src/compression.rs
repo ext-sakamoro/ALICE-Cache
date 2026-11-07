@@ -87,13 +87,64 @@ pub fn compress(data: &[u8], config: &CompressionConfig) -> CompressedEntry {
     }
 }
 
+/// 伸長できない entry の理由
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum DecompressError {
+    /// データが run や escape の途中で切れている
+    Truncated,
+    /// `compress` が書かない tag がある
+    UnknownTag(u8),
+    /// `original_size` より長くなる (その分は書かずに止める)
+    TooLong {
+        /// `original_size`
+        expected: usize,
+    },
+    /// 全部読んでも `original_size` に届かない
+    TooShort {
+        /// `original_size`
+        expected: usize,
+        /// 実際の長さ
+        actual: usize,
+    },
+}
+
+impl core::fmt::Display for DecompressError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Truncated => f.write_str("compressed data is cut off"),
+            Self::UnknownTag(tag) => write!(f, "unknown tag {tag:#04x} in compressed data"),
+            Self::TooLong { expected } => write!(f, "output is longer than {expected} bytes"),
+            Self::TooShort { expected, actual } => {
+                write!(f, "output is {actual} bytes, not {expected}")
+            }
+        }
+    }
+}
+
+impl core::error::Error for DecompressError {}
+
 /// 伸長。
-#[must_use]
-pub fn decompress(entry: &CompressedEntry) -> Vec<u8> {
+///
+/// 結果の長さは必ず `original_size` になる `original_size` は呼び出し側が持つ値なので、確保の
+/// 根拠にはせず上限としてだけ使う
+///
+/// # Errors
+///
+/// [`DecompressError`]: データが壊れている時、または長さが `original_size` と違う時
+pub fn decompress(entry: &CompressedEntry) -> Result<Vec<u8>, DecompressError> {
     if !entry.compressed {
-        return entry.data.clone();
+        return exact_length(entry.data.clone(), entry.original_size);
     }
     rle_decompress(&entry.data, entry.original_size)
+}
+
+fn exact_length(out: Vec<u8>, expected: usize) -> Result<Vec<u8>, DecompressError> {
+    match out.len() {
+        actual if actual > expected => Err(DecompressError::TooLong { expected }),
+        actual if actual < expected => Err(DecompressError::TooShort { expected, actual }),
+        _ => Ok(out),
+    }
 }
 
 /// マーカーバイト。
@@ -142,45 +193,53 @@ fn rle_compress(data: &[u8]) -> Vec<u8> {
 }
 
 /// RLE 伸長。
-fn rle_decompress(data: &[u8], expected_size: usize) -> Vec<u8> {
+fn rle_decompress(data: &[u8], expected_size: usize) -> Result<Vec<u8>, DecompressError> {
     // `expected_size` is what the caller says, so it only reserves what the data already takes
     let mut out = Vec::with_capacity(expected_size.min(data.len()));
+    let too_long = DecompressError::TooLong {
+        expected: expected_size,
+    };
     let mut i = 0;
 
     while i < data.len() {
-        if data[i] == MARKER {
-            i += 1;
-            if i >= data.len() {
-                break;
+        if data[i] != MARKER {
+            if out.len() == expected_size {
+                return Err(too_long);
             }
-            if data[i] == 0x00 {
+            out.push(data[i]);
+            i += 1;
+            continue;
+        }
+        match data.get(i + 1) {
+            None => return Err(DecompressError::Truncated),
+            Some(0x00) => {
                 // RLE: [byte, len_hi, len_lo]
-                i += 1;
-                if i + 2 >= data.len() {
-                    break;
+                let [byte, hi, lo] = *data.get(i + 2..i + 5).ok_or(DecompressError::Truncated)?
+                else {
+                    return Err(DecompressError::Truncated);
+                };
+                let len = (usize::from(hi) << 8) | usize::from(lo);
+                if len > expected_size - out.len() {
+                    return Err(too_long);
                 }
-                let byte = data[i];
-                i += 1;
-                let len = ((data[i] as usize) << 8) | (data[i + 1] as usize);
-                i += 2;
                 for _ in 0..len {
                     out.push(byte);
                 }
-            } else if data[i] == 0x01 {
-                // エスケープ: リテラル 0xFF
-                out.push(MARKER);
-                i += 1;
-            } else {
-                // 不明なタグ → スキップ
-                i += 1;
+                i += 5;
             }
-        } else {
-            out.push(data[i]);
-            i += 1;
+            Some(0x01) => {
+                // エスケープ: リテラル 0xFF
+                if out.len() == expected_size {
+                    return Err(too_long);
+                }
+                out.push(MARKER);
+                i += 2;
+            }
+            Some(tag) => return Err(DecompressError::UnknownTag(*tag)),
         }
     }
 
-    out
+    exact_length(out, expected_size)
 }
 
 /// 圧縮率統計。
@@ -248,7 +307,7 @@ mod tests {
         let data: Vec<u8> = (0..100).map(|_| 0xAA).collect();
         let entry = compress(&data, &config);
         assert!(entry.compressed);
-        let decompressed = decompress(&entry);
+        let decompressed = decompress(&entry).unwrap();
         assert_eq!(decompressed, data);
     }
 
@@ -265,7 +324,7 @@ mod tests {
         data.extend(std::iter::repeat_n(0x00, 10)); // RLE ラン
 
         let entry = compress(&data, &config);
-        let decompressed = decompress(&entry);
+        let decompressed = decompress(&entry).unwrap();
         assert_eq!(decompressed, data);
     }
 
@@ -278,7 +337,7 @@ mod tests {
         // 0xFF をリテラルとして含むデータ
         let data = vec![1, 2, 0xFF, 3, 4, 0xFF, 5, 6, 7, 8, 9, 10];
         let entry = compress(&data, &config);
-        let decompressed = decompress(&entry);
+        let decompressed = decompress(&entry).unwrap();
         assert_eq!(decompressed, data);
     }
 
@@ -308,7 +367,7 @@ mod tests {
         let data: Vec<u8> = (0..=254).collect();
         let entry = compress(&data, &config);
         // 非圧縮のまま (RLE はランダムデータを膨張させうる)
-        let decompressed = decompress(&entry);
+        let decompressed = decompress(&entry).unwrap();
         assert_eq!(decompressed, data);
     }
 
@@ -383,7 +442,7 @@ mod tests {
         // 全部 0xFF
         let data: Vec<u8> = std::iter::repeat_n(0xFF, 20).collect();
         let entry = compress(&data, &config);
-        let decompressed = decompress(&entry);
+        let decompressed = decompress(&entry).unwrap();
         assert_eq!(decompressed, data);
     }
 }
