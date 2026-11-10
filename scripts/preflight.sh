@@ -579,7 +579,7 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "missing tool: $1 ($2)" >&2; 
 has_toolchain() { grep -q "^$1" <<<"$(rustup toolchain list)"; }
 
 # Steps CI runs that this file cannot reproduce locally (they can only fail remotely):
-#   - ci.yml:test:Lock (every alice-* from git, none by path or from a registry, at most one alice-det-math) (needs network / runner-only)
+#   - ci.yml:test:Lock (every alice-* from git, none by path or from a registry, at most one alice-det-math) (no cargo / grep)
 #   - ci.yml:no_std:Add thumbv7em-none-eabihf (no cargo / grep)
 #   - security-audit.yml:changes:decide (reads AFTER, BEFORE, CREATED, EVENT, FORCED, PR_BASE, PR_HEAD, a value only the runner has)
 #   - security-audit.yml:audit:Install cargo-audit (needs network / runner-only)
@@ -880,13 +880,13 @@ fi
 step "ci.yml / test: run"
 (
   gh_step ci.yml.test
-( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo test --lib --tests )
+( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo test --locked --lib --tests )
 )
 
 step "ci.yml / test: run"
 (
   gh_step ci.yml.test
-( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo test --lib --tests --features crypto )
+( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo test --locked --lib --tests --features crypto )
 )
 
 step "ci.yml / test: run"

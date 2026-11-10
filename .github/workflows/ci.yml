@@ -37,13 +37,12 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --lib --tests
+      - run: cargo test --locked --lib --tests
       # alice-crypto comes by git (branch main), so the signed-entry bridge is tested with it
-      - run: cargo test --lib --tests --features crypto
+      - run: cargo test --locked --lib --tests --features crypto
       - name: Lock (every alice-* from git, none by path or from a registry, at most one alice-det-math)
         shell: bash
         run: |
-          cargo generate-lockfile
           python3 - <<'PY'
           import sys, tomllib
           pk = [p for p in tomllib.load(open("Cargo.lock", "rb"))["package"] if p["name"].startswith("alice")]
