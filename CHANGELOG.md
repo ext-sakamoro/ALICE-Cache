@@ -5,6 +5,7 @@ All notable changes to ALICE-Cache will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- `scripts/entropy_guard.py` と試験を ALICE-Analytics と同じ新しい bytes にした この crate の src/ に許可の要る呼び出しは無いので `scripts/entropy_guard.toml` は置かない
 - **破壊的**: `decompress` の戻り値を `Vec<u8>` から `Result<Vec<u8>, DecompressError>` に変更 切れた run、`compress` が書かない tag、`original_size` と違う長さを断る 以前はどれも成功として返していた `original_size` を超える出力は書く前に止める `compress` の出力は変わらない
 - Licence: `AGPL-3.0-or-later` → `LicenseRef-Proprietary`
 - CI: production code (`src/`) が OS の乱数・時刻を読まないことを検査する `scripts/entropy_guard.py` (試験 `scripts/test_entropy_guard.py`) を足した `RandomState` の使用 (`::default()` を含む)、`getrandom` `OsRng` `thread_rng` `SystemTime::now` `Instant::now` などを `#[cfg(test)]` の外で見つけると失敗し、読んだ file か pattern が 0 件でも失敗する `clippy.toml` の `disallowed-methods` / `disallowed-types` が同じ対象を型解決で止める CI (actionlint job) と preflight で走る
