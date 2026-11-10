@@ -6,7 +6,7 @@
 # Run `--quick` before every push.
 #
 # usage: scripts/preflight.sh [--quick]   (--quick skips the test / bench suites)
-# generator rev e2bb3de7ed4ef9138b566d6274e62d4557010dd9
+# generator rev c16026cbe85a2c6d0b8c0f6333c47c5185837453
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # --- heavy slot (begin) ---
@@ -191,15 +191,21 @@ heavy_slot_acquire() {
     };
     my $me = $name->();
     my $ticket = "$q/$me";
-    open(my $tf, ">", $ticket) or do { print "error $!\n"; exit 2 }; close $tf;
-    END { unlink $ticket if defined $ticket }
+    open(my $tf, ">", $ticket) or do { print "error $!\n"; exit 2 }; print $tf ($label // ""), "\n"; close $tf;
+    # a waiter the disk holds (its own admission failed) says so beside its ticket: `.disk-<ticket>`, the reason,
+    # refreshed at each ask; a waiter behind waiters that are all disk-held may take a free slot when its own
+    # admission passes (2026-11-10: a head reserving 30.8 GiB of 25.5 free held 5 fitting waiters for 3 h); the head
+    # keeps its place: it clears its marker as soon as the disk fits, and then nobody behind it may pass
+    my $mark = sub { "$q/.disk-$me" };
+    my $clear = sub { unlink $mark->() };
+    END { unlink $ticket if defined $ticket; unlink "$q/.disk-$me" if defined $me }
     my @fh;
     for my $k (0 .. $n - 1) { open($fh[$k], ">>", "$dir/$lock$k") or do { print "error $!\n"; exit 2 } }
     print "pid $$\n";
     my $start = time; my $note = 0; my $best; my $moved = time;
     while (1) {
       my $want = $name->();
-      if ($want ne $me && rename($ticket, "$q/$want")) { $me = $want; $ticket = "$q/$me" }
+      if ($want ne $me && rename($ticket, "$q/$want")) { $clear->(); $me = $want; $ticket = "$q/$me" }
       opendir(my $dh, $q) or do { print "error $!\n"; exit 2 };
       my @live;
       for my $t (sort grep { /^\d/ } readdir $dh) {
@@ -208,14 +214,20 @@ heavy_slot_acquire() {
       }
       closedir $dh;
       my ($place) = grep { $live[$_] eq $me } 0 .. $#live;
-      if (defined $place && $place == 0 && defined $dscript && $dscript ne "" && time - $dlast >= 5) {
+      # may ask for a slot: the head, or a waiter every one before which is held by the disk (a marker fresher than
+      # 15 s; a copy of this block from before the markers writes none, so nobody passes it)
+      my $eligible = defined $place && ($place == 0 || ($dscript ne "" && !grep {
+        my $m = (stat("$q/.disk-$live[$_]"))[9]; !defined $m || time - $m > 15 } 0 .. $place - 1));
+      if (!$eligible && !$dok) { ($dok, $dlast) = (1, 0); $clear->() }  # (passed by: asks again when it may)
+      if ($eligible && defined $dscript && $dscript ne "" && time - $dlast >= 5) {
         $dwhy = `python3 "$dscript" admit "$dir" "$dkey" 2>&1`; $dok = ($? == 0); $dlast = time; chomp $dwhy;
+        if ($dok) { $clear->() } elsif (open(my $mf, ">", $mark->() . ".tmp")) { print $mf "$dwhy\n"; close $mf; rename $mark->() . ".tmp", $mark->() }
         $moved = time if !$dok;  # (waiting for disk is not a stalled queue: the head does not give up for it)
       }
-      if (defined $place && $place == 0 && $dok) {
+      if ($eligible && $dok) {
         for my $k (0 .. $n - 1) {
           next unless flock($fh[$k], LOCK_EX | LOCK_NB);
-          unlink $ticket; undef $ticket; unlink $res if $res ne "";
+          $clear->(); unlink $ticket; undef $ticket; unlink $res if $res ne "";
           $0 = "alice-heavy-slot $title slot=$k holder=$parent dirhex=" . unpack("H*", $dir) . " end";
           print "held $k\n"; close(STDOUT);
           sleep 1 while getppid() == $parent;
@@ -225,8 +237,8 @@ heavy_slot_acquire() {
       my $w = int(time - $start);
       if ($class eq "work" && $w >= $age) { $class = "land (promoted)" }  # (renamed at the next poll)
       if (defined $place && (!defined $best || $place < $best)) { $best = $place; $moved = time }
-      if ($w >= $limit) { unlink $res if $res ne ""; print "timeout\n"; exit 1 }
-      if (time - $moved >= $stall) { unlink $res if $res ne ""; print "stalled\n"; exit 1 }
+      if ($w >= $limit) { unlink $res if $res ne ""; $clear->(); print "timeout\n"; exit 1 }
+      if (time - $moved >= $stall) { unlink $res if $res ne ""; $clear->(); print "stalled\n"; exit 1 }
       if ($res ne "" && time - $touched >= 30) { utime(undef, undef, $res); $touched = time }
       if ($w >= $note) { printf "wait %d %d %s%s\n", ($place // 0) + 1, $w, $class, $dok ? "" : " disk"; $note += 60 }
       sleep 0.2;
@@ -240,7 +252,7 @@ heavy_slot_acquire() {
         set -- $line
         case "$2" in 1) k=1st ;; 2) k=2nd ;; 3) k=3rd ;; *) k="$2th" ;; esac
         if [ "${6:-${5:-}}" = disk ]; then
-          echo "heavy slot: first in the queue, waiting for disk space ($3 s): $(python3 "$dscript" admit "$d" "$dkey" 2>&1)" >&2
+          echo "heavy slot: $k in the queue, waiting for disk space ($3 s): $(python3 "$dscript" admit "$d" "$dkey" 2>&1)" >&2
         else
           echo "heavy slot: waiting ($k in the queue, $3 s) for $(heavy_slot_holders "$d"); ${pool} slot, as $4${5:+ $5}" >&2
         fi
@@ -567,6 +579,7 @@ need() { command -v "$1" >/dev/null 2>&1 || { echo "missing tool: $1 ($2)" >&2; 
 has_toolchain() { grep -q "^$1" <<<"$(rustup toolchain list)"; }
 
 # Steps CI runs that this file cannot reproduce locally (they can only fail remotely):
+#   - ci.yml:test:Lock (every alice-* from git, none by path or from a registry, at most one alice-det-math) (needs network / runner-only)
 #   - ci.yml:no_std:Add thumbv7em-none-eabihf (no cargo / grep)
 #   - security-audit.yml:changes:decide (reads AFTER, BEFORE, CREATED, EVENT, FORCED, PR_BASE, PR_HEAD, a value only the runner has)
 #   - security-audit.yml:audit:Install cargo-audit (needs network / runner-only)
@@ -586,12 +599,15 @@ has_toolchain() { grep -q "^$1" <<<"$(rustup toolchain list)"; }
 #   - fuzz.yml:fuzz:Set fuzz duration [target=fuzz_decompress_entry] (no cargo / grep)
 #   - fuzz.yml:fuzz:Run fuzz target (time-boxed) [target=fuzz_decompress_entry] (runner-only (open-ended or unprovable-bounded fuzz run))
 #   - fuzz.yml:gate:gate (reads NEEDS, a value only the runner has)
+#   - public-text.yml:public-text: uses actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 (an action this file cannot run)
+#   - public-text.yml:public-text:Public text (tree at HEAD, then the pushed commits) (no cargo / grep)
 
 need actionlint "brew install actionlint"
 need cargo-audit "cargo install cargo-audit --locked"
 need cargo-deny "cargo install cargo-deny --locked"
 need cargo-hack "cargo install cargo-hack --locked"
 need cargo-machete "cargo install cargo-machete --locked"
+command -v python >/dev/null 2>&1 || python() { python3 "$@"; }
 
 step "ci.yml / test: run"
 (
@@ -637,7 +653,7 @@ grep -q '^aarch64-unknown-none$' <<<"$(rustup target list --installed)" || rustu
 step "ci.yml / feature-powerset: run"
 (
   gh_step ci.yml.feature-powerset
-( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo hack check --lib --feature-powerset --depth 2 --exclude-features pyo3,crypto --features std )
+( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo hack check --lib --feature-powerset --depth 2 --exclude-features pyo3 --features std )
 )
 
 step "ci.yml / fmt: run"
@@ -846,6 +862,12 @@ else
 fi
 )
 
+step "public-text.yml / public-text: Tests of scripts/public_text.sh (no network)"
+(
+  gh_step public-text.yml.public-text
+( python scripts/test_public_text.py )
+)
+
 if [[ $quick -eq 1 ]]; then
   echo; echo "preflight --quick OK (test / bench suites skipped)"; exit 0
 fi
@@ -854,6 +876,12 @@ step "ci.yml / test: run"
 (
   gh_step ci.yml.test
 ( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo test --lib --tests )
+)
+
+step "ci.yml / test: run"
+(
+  gh_step ci.yml.test
+( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo test --lib --tests --features crypto )
 )
 
 step "ci.yml / test: run"

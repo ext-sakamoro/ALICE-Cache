@@ -5,6 +5,7 @@ All notable changes to ALICE-Cache will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- 依存: `alice-crypto` (feature `crypto`) を crates.io の 0.1 から git の main (0.7、feature `std-base` / `hash` / `aead`) に替えた 使われていなかった `alice-analytics` 0.3 (feature `analytics` は無効、`src/analytics_bridge.rs` が使う型を alice-analytics の main は公開していない) の依存を外した CI: `cargo test --lib --tests --features crypto` と、Cargo.lock の alice-* が全部 git から来ること (path / registry 0 件、alice-det-math は高々 1 つ) の検査を足し、feature の組合せの検査から `crypto` を外すのをやめた
 - **破壊的**: `decompress` の戻り値を `Vec<u8>` から `Result<Vec<u8>, DecompressError>` に変更 切れた run、`compress` が書かない tag、`original_size` と違う長さを断る 以前はどれも成功として返していた `original_size` を超える出力は書く前に止める `compress` の出力は変わらない
 - Licence: `AGPL-3.0-or-later` → `LicenseRef-Proprietary`
 - CI: production code (`src/`) が OS の乱数・時刻を読まないことを検査する `scripts/entropy_guard.py` (試験 `scripts/test_entropy_guard.py`) を足した `RandomState` の使用 (`::default()` を含む)、`getrandom` `OsRng` `thread_rng` `SystemTime::now` `Instant::now` などを `#[cfg(test)]` の外で見つけると失敗し、読んだ file か pattern が 0 件でも失敗する `clippy.toml` の `disallowed-methods` / `disallowed-types` が同じ対象を型解決で止める CI (actionlint job) と preflight で走る

@@ -38,6 +38,22 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --lib --tests
+      # alice-crypto comes by git (branch main), so the signed-entry bridge is tested with it
+      - run: cargo test --lib --tests --features crypto
+      - name: Lock (every alice-* from git, none by path or from a registry, at most one alice-det-math)
+        shell: bash
+        run: |
+          cargo generate-lockfile
+          python3 - <<'PY'
+          import sys, tomllib
+          pk = [p for p in tomllib.load(open("Cargo.lock", "rb"))["package"] if p["name"].startswith("alice")]
+          bad = [f'{p["name"]} {p["version"]} {p.get("source", "path")}' for p in pk
+                 if p["name"] != "alice-cache" and not p.get("source", "").startswith("git+")]
+          dm = [p for p in pk if p["name"] == "alice-det-math"]
+          print(f"lock: {len(pk) - 1} alice-* dependencies, {len(bad)} not from git, {len(dm)} alice-det-math")
+          if len(pk) < 2 or bad or len(dm) > 1:
+              sys.exit("\n".join(bad) or "expected an alice-* dependency and at most one alice-det-math")
+          PY
       - run: cargo test --doc
       - run: cargo build --examples
 
@@ -90,7 +106,7 @@ jobs:
       - name: Install cargo-hack
         uses: taiki-e/install-action@cargo-hack
       # std 固定: std なしの組合せは cdylib link 要求で落ちるため no_std job 側で rlib として検証
-      - run: cargo hack check --lib --feature-powerset --depth 2 --exclude-features pyo3,crypto --features std
+      - run: cargo hack check --lib --feature-powerset --depth 2 --exclude-features pyo3 --features std
 
   fmt:
     runs-on: ubuntu-latest

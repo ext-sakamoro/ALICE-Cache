@@ -21,10 +21,8 @@ default = ["std"]
 std = ["dep:parking_lot"]
 pyo3 = ["dep:pyo3", "dep:numpy", "std"]  # Python bindings
 crypto = ["dep:alice-crypto", "std"]  # Signed cache entries for tamper prevention
-# analytics feature は alice-analytics 側 API drift で 0.2.0 では一時 disable
-# HyperLogLog/DDSketch/CountMinSketch は alice-analytics 側で rename or 未 export
-# 修正後 0.3.0 で復活予定 (下記 optional dep は保持、feature gate off)
-# analytics = ["dep:alice-analytics", "std"]
+# analytics feature は無効のまま: src/analytics_bridge.rs が使う HyperLogLog / DDSketch /
+# CountMinSketch を alice-analytics の main は公開していない (戻す時は git branch=main で依存を足す)
 
 [dependencies]
 # no_std で 64-bit atomic の無い target (Cortex-M4 thumbv7em = 32-bit atomic まで) でも
@@ -36,8 +34,7 @@ spin = { version = "0.9", default-features = false, features = ["mutex", "spin_m
 hashbrown = { version = "0.14", default-features = false, features = ["inline-more"] }
 pyo3 = { version = "0.27", features = ["extension-module"], optional = true }
 numpy = { version = "0.27", optional = true }
-alice-crypto = { version = "0.1", optional = true, default-features = false, features = ["std"] }
-alice-analytics = { version = "0.3", optional = true, default-features = false, features = ["std"] }
+alice-crypto = { git = "https://github.com/ext-sakamoro/ALICE-Crypto", branch = "main", version = "0.7", optional = true, default-features = false, features = ["std-base", "hash", "aead"] }
 
 [profile.release]
 opt-level = 3
