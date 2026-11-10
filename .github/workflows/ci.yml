@@ -68,6 +68,8 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets -- -W clippy::all -W clippy::pedantic -D warnings
+      # the signed-entry bridge (feature crypto, alice-crypto from git)
+      - run: cargo clippy --all-targets --features crypto -- -W clippy::all -W clippy::pedantic -D warnings
 
   no_std:
     name: no_std (rlib、host + bare-metal aarch64-unknown-none / thumbv7em-none-eabihf)

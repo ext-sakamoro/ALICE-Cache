@@ -8,4 +8,12 @@ deny.toml
 .github/workflows/security-audit.yml
 .github/actions/**
 examples/*/Cargo.toml
+scripts/package_integrity.py
+scripts/test_package_integrity.py
+scripts/alice_siblings_check.py
+scripts/test_alice_siblings_check.py
+scripts/id_move_check.py
+scripts/test_id_move_check.py
+scripts/release_baseline.py
+scripts/test_release_baseline.py
 .github/paths/security-audit.txt

@@ -66,6 +66,10 @@ pub struct CryptoCache {
 
 impl CryptoCache {
     /// Create a new encrypted cache with a fresh random key.
+    ///
+    /// # Errors
+    ///
+    /// The error of [`Key::generate`] when the operating system's random source fails.
     pub fn new() -> Result<Self, CipherError> {
         Ok(Self {
             key: Key::generate()?,
@@ -87,6 +91,10 @@ impl CryptoCache {
     }
 
     /// Encrypt data for cache storage.
+    ///
+    /// # Errors
+    ///
+    /// The error of [`seal`] when the plaintext cannot be sealed.
     pub fn encrypt(&mut self, plaintext: &[u8]) -> Result<EncryptedEntry, CipherError> {
         let plaintext_hash = *hash(plaintext).as_bytes();
         let ciphertext = seal(&self.key, plaintext)?;
@@ -98,6 +106,11 @@ impl CryptoCache {
     }
 
     /// Decrypt a cache entry.
+    ///
+    /// # Errors
+    ///
+    /// [`CipherError::DecryptionFailed`] when the ciphertext does not open with this key, or when the
+    /// opened plaintext does not hash to the entry's `plaintext_hash` (counted in `integrity_failures`).
     pub fn decrypt(&mut self, entry: &EncryptedEntry) -> Result<Vec<u8>, CipherError> {
         let plaintext = open(&self.key, &entry.ciphertext)?;
 

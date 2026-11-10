@@ -622,6 +622,13 @@ relint
 ( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo clippy --all-targets -- -W clippy::all -W clippy::pedantic -D warnings )
 )
 
+step "ci.yml / clippy: run"
+(
+  gh_step ci.yml.clippy
+relint
+( export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"; cargo clippy --all-targets --features crypto -- -W clippy::all -W clippy::pedantic -D warnings )
+)
+
 step "ci.yml / no_std: Build (no_std, host)"
 (
   gh_step ci.yml.no_std
@@ -781,29 +788,27 @@ step "security-audit.yml / stub-guard: Detect TODO / FIXME / XXX / HACK (informa
 )
 )
 
-step "security-audit.yml / package-integrity: cargo package (.crate を作る)"
+step "security-audit.yml / package-integrity: Package integrity (tests)"
 (
   gh_step security-audit.yml.package-integrity
-( export CARGO_TERM_COLOR="always" CARGO_NET_RETRY="5" CARGO_HTTP_MULTIPLEXING="false"; cargo package --no-verify --allow-dirty )
+( export CARGO_TERM_COLOR="always" CARGO_NET_RETRY="5" CARGO_HTTP_MULTIPLEXING="false"; python3 scripts/test_package_integrity.py )
 )
 
-step "security-audit.yml / package-integrity: 展開して隔離 build"
+step "security-audit.yml / package-integrity: Package integrity imports (tests)"
 (
   gh_step security-audit.yml.package-integrity
 (
   export CARGO_TERM_COLOR="always" CARGO_NET_RETRY="5" CARGO_HTTP_MULTIPLEXING="false"
-  set -euo pipefail
-  crate=$(find "${CARGO_TARGET_DIR:-target}"/package -maxdepth 1 -name '*.crate' | head -1)
-  [ -n "$crate" ] || { echo "::error::.crate が生成されていない"; exit 1; }
-  echo "packaged: $(basename "$crate") ($(du -h "$crate" | cut -f1))"
-  tmp=$(mktemp -d)
-  tar xzf "$crate" -C "$tmp"
-  cd "$tmp"/*/
-  # 親 workspace を継承すると member 扱いになり、境界を越えた file が
-  # 再び見えてしまう (検査の意味が消える) ので単独 package として build
-  printf '\n[workspace]\n' >> Cargo.toml
-  cargo check --all-features
+  python3 scripts/test_alice_siblings_check.py
+  python3 scripts/test_id_move_check.py
+  python3 scripts/test_release_baseline.py
 )
+)
+
+step "security-audit.yml / package-integrity: Package integrity (package, unpack, build on its own)"
+(
+  gh_step security-audit.yml.package-integrity
+( export CARGO_TERM_COLOR="always" CARGO_NET_RETRY="5" CARGO_HTTP_MULTIPLEXING="false"; python3 scripts/package_integrity.py --expect-in-lock alice-crypto )
 )
 
 step "fuzz.yml / fuzz: Build fuzz target [target=fuzz_get_put_roundtrip]"
