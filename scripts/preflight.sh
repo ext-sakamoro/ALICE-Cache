@@ -691,6 +691,16 @@ step "ci.yml / actionlint: workflow-timeouts"
 )
 )
 
+step "ci.yml / actionlint: Upstream previous identifiers (test, then whole-list uses only)"
+(
+  gh_step ci.yml.actionlint
+(
+  export CARGO_TERM_COLOR="always" RUSTFLAGS="-Dwarnings"
+  python3 scripts/test_upstream_previous_ids_check.py
+  python3 scripts/upstream_previous_ids_check.py
+)
+)
+
 step "ci.yml / actionlint: entropy-guard"
 (
   gh_step ci.yml.actionlint

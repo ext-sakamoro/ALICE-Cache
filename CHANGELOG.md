@@ -34,6 +34,7 @@ All notable changes to ALICE-Cache will be documented in this file.
 - CI: test job を `ubuntu-latest` と `ubuntu-24.04-arm` の matrix にした golden digest を別 CPU 構成でも固定する
 
 ### Added
+- CI: 他の crate の `PREVIOUS_*_SEMANTICS_IDS` は一覧全体としてだけ使える (`contains` / `len` / `is_empty`、全体を回す iterator や for、引数として丸ごと渡す) とし、添字・slice のパターン・`.first` / `next` / `take` などを拒む `scripts/upstream_previous_ids_check.py` と試験を足した (ALICE-Edge と同じ中身の共有 file) 上流は major で一覧を空にする 走査した .rs が 0 件なら失敗 (ci.yml と preflight)
 - `AliceCache::with_seed(capacity, seed)` / `AliceCache::with_config_and_seed(config, seed)` seed を明示でき、同じ seed と同じ操作列は常に同じ結果になる
 - `SeededState` / `SeededHasher` / `DEFAULT_SEED` を公開
 
