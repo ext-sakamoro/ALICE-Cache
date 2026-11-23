@@ -5,6 +5,7 @@ All notable changes to ALICE-Cache will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- CI (共有の写し): `scripts/entropy_guard.py` と試験、`scripts/id_move_check.py` と試験を ALICE-Law の表が移行先とする ALICE-Analytics の bytes にした (entropy_guard の許可は repo ごとの `scripts/entropy_guard.toml`、この repo は許可 0 件なので file を置かない)
 - Cargo.lock を追跡する (git の branch で引く `alice-crypto` の commit を lock が決めるため、package integrity は lock の commit で patch する) CI の試験は `--locked`
 - CI (package integrity): 自前の `cargo package` + 展開 build を、共有の `scripts/package_integrity.py` (git の branch で引く依存を lock の commit で patch して隔離 build) に替えた import 先の `alice_siblings_check.py` / `id_move_check.py` / `release_baseline.py` と各試験、`.github/actions/alice-siblings/action.yml` も同じ bytes で持つ clippy (pedantic) を feature `crypto` でも走らせ、`crypto_bridge` の 3 関数に `# Errors` を書いた `deny.toml` の `allow-git` に ALICE-Crypto を足した
 - 依存: `alice-crypto` (feature `crypto`) を crates.io の 0.1 から git の main (0.7、feature `std-base` / `hash` / `aead`) に替えた 使われていなかった `alice-analytics` 0.3 (feature `analytics` は無効、`src/analytics_bridge.rs` が使う型を alice-analytics の main は公開していない) の依存を外した CI: `cargo test --lib --tests --features crypto` と、Cargo.lock の alice-* が全部 git から来ること (path / registry 0 件、alice-det-math は高々 1 つ) の検査を足し、feature の組合せの検査から `crypto` を外すのをやめた
