@@ -21,7 +21,9 @@ use crate::sketch::Sketch4K;
 /// 256-shard lock-free architecture. Thread-safe.
 #[pyclass(name = "AliceCache")]
 pub struct PyAliceCache {
-    inner: AliceCache<String, Vec<u8>>,
+    // boxed: AliceCache holds cache-line padded counters (align 64), more than the 16-byte alignment CPython
+    // gives the pyclass contents; the box keeps the pyclass at pointer alignment
+    inner: Box<AliceCache<String, Vec<u8>>>,
 }
 
 #[pymethods]
@@ -31,7 +33,7 @@ impl PyAliceCache {
     #[pyo3(signature = (capacity=10000))]
     fn new(capacity: usize) -> Self {
         Self {
-            inner: AliceCache::new(capacity),
+            inner: Box::new(AliceCache::new(capacity)),
         }
     }
 
@@ -47,7 +49,7 @@ impl PyAliceCache {
             ..Default::default()
         };
         Self {
-            inner: AliceCache::with_config(config),
+            inner: Box::new(AliceCache::with_config(config)),
         }
     }
 
@@ -246,6 +248,13 @@ fn jump_hash_batch<'py>(
 // ============================================================================
 // Module
 // ============================================================================
+
+// CPython allocates every object (and the pyclass contents inside it) on a 16-byte boundary; a pyclass
+// whose contents need a larger alignment is undefined behaviour (debug builds abort with a misaligned
+// pointer dereference, release builds run silently on a misaligned address). Hold such data in a Box.
+const _: () = assert!(core::mem::align_of::<PyAliceCache>() <= 16);
+const _: () = assert!(core::mem::align_of::<PyCountMinSketch>() <= 16);
+const _: () = assert!(core::mem::align_of::<PySharedOracle>() <= 16);
 
 #[pymodule]
 pub fn alice_cache(m: &Bound<'_, PyModule>) -> PyResult<()> {

@@ -109,6 +109,30 @@ jobs:
       # std 固定: std なしの組合せは cdylib link 要求で落ちるため no_std job 側で rlib として検証
       - run: cargo hack check --lib --feature-powerset --depth 2 --exclude-features pyo3 --features std
 
+  python:
+    # the pyo3 feature on the runner image's own python3 (no setup-python pin): clippy, then the extension built
+    # (debug, so pyo3's alignment check runs) and imported, every binding checked against values the script
+    # computes itself; numpy is installed in a venv because jump_hash_batch returns a numpy array
+    name: Python bindings (pyo3, runner python3)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Clippy (pyo3, lib)
+        run: |
+          python3 --version
+          PYO3_PYTHON="$(command -v python3)" cargo clippy --lib --features pyo3 -- -D warnings
+      - name: numpy in a venv on the runner's python3
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/python" -m pip install --quiet numpy
+      - name: Python binding tests
+        run: '"$RUNNER_TEMP/venv/bin/python" scripts/test_python_bindings.py'
+
   fmt:
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -4,6 +4,13 @@ All notable changes to ALICE-Cache will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Python の `AliceCache` を作ると未定義動作だった: `AliceCache` は 64 byte 境界の統計 counter (`PaddedAtomicU64`、`#[repr(C, align(64))]`) を持ち、それを値で持つ pyclass の中身は CPython が確保する 16 byte 境界を超えていた (debug build は pyo3 が misaligned pointer で止まり、release は黙ってずれた address で動く) binding は `Box<AliceCache>` で持つ core の型は変えない `src/python.rs` の pyclass 3 型に `align_of <= 16` の compile 時 assert
+
+### Added
+- 試験 `scripts/test_python_bindings.py`: `pyo3` 拡張を実行中の python 用に debug で build して import し、登録した名前が全部 export されること、jump consistent hash を Lamping-Veach の論文の手順 (script に書き下す) と、byte 鍵を FNV-1a 64 → jump と、batch を scalar と比べ、cache と sketch の基本動作を確かめる 8 本 (試験 0 本は失敗)
+- CI: `python` job (runner の python3 で `pyo3` の clippy と上の試験、numpy は venv に入れる) これまで `pyo3` feature は CI で build されていなかった
+
 ### Changed
 - CI (共有の写し): `scripts/entropy_guard.py` と試験、`scripts/id_move_check.py` と試験を ALICE-Law の表が移行先とする ALICE-Analytics の bytes にした (entropy_guard の許可は repo ごとの `scripts/entropy_guard.toml`、この repo は許可 0 件なので file を置かない)
 - Cargo.lock を追跡する (git の branch で引く `alice-crypto` の commit を lock が決めるため、package integrity は lock の commit で patch する) CI の試験は `--locked`
